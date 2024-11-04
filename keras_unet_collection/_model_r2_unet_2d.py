@@ -1,4 +1,4 @@
-
+# ruff: noqa: F401, F403
 from __future__ import absolute_import
 
 from keras_unet_collection.layer_utils import *
@@ -7,12 +7,22 @@ from keras_unet_collection.activations import GELU, Snake
 from keras.layers import Input
 from keras.models import Model
 
-def RR_CONV(X, channel, kernel_size=3, stack_num=2, recur_num=2, activation='ReLU', batch_norm=False, name='rr'):
-    '''
+
+def RR_CONV(
+    X,
+    channel,
+    kernel_size=3,
+    stack_num=2,
+    recur_num=2,
+    activation="ReLU",
+    batch_norm=False,
+    name="rr",
+):
+    """
     Recurrent convolutional layers with skip connection.
-    
+
     RR_CONV(X, channel, kernel_size=3, stack_num=2, recur_num=2, activation='ReLU', batch_norm=False, name='rr')
-    
+
     Input
     ----------
         X: input tensor.
@@ -23,55 +33,74 @@ def RR_CONV(X, channel, kernel_size=3, stack_num=2, recur_num=2, activation='ReL
         activation: one of the `tensorflow.keras.layers` or `keras_unet_collection.activations` interfaces, e.g., 'ReLU'.
         batch_norm: True for batch normalization, False otherwise.
         name: prefix of the created keras layers.
-        
+
     Output
     ----------
         X: output tensor.
-        
-    '''
-    
-    activation_func = eval(activation)
-    
-    layer_skip = Conv2D(channel, 1, name='{}_conv'.format(name))(X)
-    layer_main = layer_skip
-    
-    for i in range(stack_num):
 
-        layer_res = Conv2D(channel, kernel_size, padding='same', name='{}_conv{}'.format(name, i))(layer_main)
-        
+    """
+
+    activation_func = eval(activation)
+
+    layer_skip = Conv2D(channel, 1, name="{}_conv".format(name))(X)
+    layer_main = layer_skip
+
+    for i in range(stack_num):
+        layer_res = Conv2D(
+            channel, kernel_size, padding="same", name="{}_conv{}".format(name, i)
+        )(layer_main)
+
         if batch_norm:
-            layer_res = BatchNormalization(name='{}_bn{}'.format(name, i))(layer_res)
-            
-        layer_res = activation_func(name='{}_activation{}'.format(name, i))(layer_res)
-            
+            layer_res = BatchNormalization(name="{}_bn{}".format(name, i))(layer_res)
+
+        layer_res = activation_func(name="{}_activation{}".format(name, i))(layer_res)
+
         for j in range(recur_num):
-            
-            layer_add = add([layer_res, layer_main], name='{}_add{}_{}'.format(name, i, j))
-            
-            layer_res = Conv2D(channel, kernel_size, padding='same', name='{}_conv{}_{}'.format(name, i, j))(layer_add)
-            
+            layer_add = add(
+                [layer_res, layer_main], name="{}_add{}_{}".format(name, i, j)
+            )
+
+            layer_res = Conv2D(
+                channel,
+                kernel_size,
+                padding="same",
+                name="{}_conv{}_{}".format(name, i, j),
+            )(layer_add)
+
             if batch_norm:
-                layer_res = BatchNormalization(name='{}_bn{}_{}'.format(name, i, j))(layer_res)
-                
-            layer_res = activation_func(name='{}_activation{}_{}'.format(name, i, j))(layer_res)
-            
+                layer_res = BatchNormalization(name="{}_bn{}_{}".format(name, i, j))(
+                    layer_res
+                )
+
+            layer_res = activation_func(name="{}_activation{}_{}".format(name, i, j))(
+                layer_res
+            )
+
         layer_main = layer_res
 
-    out_layer = add([layer_main, layer_skip], name='{}_add{}'.format(name, i))
-    
+    out_layer = add([layer_main, layer_skip], name="{}_add{}".format(name, i))
+
     return out_layer
 
 
-def UNET_RR_left(X, channel, kernel_size=3, 
-                 stack_num=2, recur_num=2, activation='ReLU', 
-                 pool=True, batch_norm=False, name='left0'):
-    '''
+def UNET_RR_left(
+    X,
+    channel,
+    kernel_size=3,
+    stack_num=2,
+    recur_num=2,
+    activation="ReLU",
+    pool=True,
+    batch_norm=False,
+    name="left0",
+):
+    """
     The encoder block of R2U-Net.
-    
-    UNET_RR_left(X, channel, kernel_size=3, 
-                 stack_num=2, recur_num=2, activation='ReLU', 
+
+    UNET_RR_left(X, channel, kernel_size=3,
+                 stack_num=2, recur_num=2, activation='ReLU',
                  pool=True, batch_norm=False, name='left0')
-    
+
     Input
     ----------
         X: input tensor.
@@ -85,35 +114,58 @@ def UNET_RR_left(X, channel, kernel_size=3,
               False for strided conv + batch norm + activation.
         batch_norm: True for batch normalization, False otherwise.
         name: prefix of the created keras layers.
-        
+
     Output
     ----------
         X: output tensor.
-    
+
     *downsampling is fixed to 2-by-2, e.g., reducing feature map sizes from 64-by-64 to 32-by-32
-    '''
+    """
     pool_size = 2
-    
+
     # maxpooling layer vs strided convolutional layers
-    X = encode_layer(X, channel, pool_size, pool, activation=activation, 
-                     batch_norm=batch_norm, name='{}_encode'.format(name))
-    
+    X = encode_layer(
+        X,
+        channel,
+        pool_size,
+        pool,
+        activation=activation,
+        batch_norm=batch_norm,
+        name="{}_encode".format(name),
+    )
+
     # stack linear convolutional layers
-    X = RR_CONV(X, channel, stack_num=stack_num, recur_num=recur_num, 
-                activation=activation, batch_norm=batch_norm, name=name)    
+    X = RR_CONV(
+        X,
+        channel,
+        stack_num=stack_num,
+        recur_num=recur_num,
+        activation=activation,
+        batch_norm=batch_norm,
+        name=name,
+    )
     return X
 
 
-def UNET_RR_right(X, X_list, channel, kernel_size=3, 
-                   stack_num=2, recur_num=2, activation='ReLU',
-                   unpool=True, batch_norm=False, name='right0'):
-    '''
+def UNET_RR_right(
+    X,
+    X_list,
+    channel,
+    kernel_size=3,
+    stack_num=2,
+    recur_num=2,
+    activation="ReLU",
+    unpool=True,
+    batch_norm=False,
+    name="right0",
+):
+    """
     The decoder block of R2U-Net.
-    
-    UNET_RR_right(X, X_list, channel, kernel_size=3, 
+
+    UNET_RR_right(X, X_list, channel, kernel_size=3,
                   stack_num=2, recur_num=2, activation='ReLU',
                   unpool=True, batch_norm=False, name='right0')
-    
+
     Input
     ----------
         X: input tensor.
@@ -128,35 +180,73 @@ def UNET_RR_right(X, X_list, channel, kernel_size=3,
                 False for Conv2DTranspose + batch norm + activation.
         batch_norm: True for batch normalization, False otherwise.
         name: prefix of the created keras layers.
-        
+
     Output
     ----------
         X: output tensor
-    
-    '''
-    
+
+    """
+
     pool_size = 2
-    
-    X = decode_layer(X, channel, pool_size, unpool, 
-                     activation=activation, batch_norm=batch_norm, name='{}_decode'.format(name))
-    
+
+    X = decode_layer(
+        X,
+        channel,
+        pool_size,
+        unpool,
+        activation=activation,
+        batch_norm=batch_norm,
+        name="{}_decode".format(name),
+    )
+
     # linear convolutional layers before concatenation
-    X = CONV_stack(X, channel, kernel_size, stack_num=1, activation=activation, 
-                   batch_norm=batch_norm, name='{}_conv_before_concat'.format(name))
-    
+    X = CONV_stack(
+        X,
+        channel,
+        kernel_size,
+        stack_num=1,
+        activation=activation,
+        batch_norm=batch_norm,
+        name="{}_conv_before_concat".format(name),
+    )
+
     # Tensor concatenation
-    H = concatenate([X,]+X_list, axis=-1, name='{}_concat'.format(name))
-    
+    H = concatenate(
+        [
+            X,
+        ]
+        + X_list,
+        axis=-1,
+        name="{}_concat".format(name),
+    )
+
     # stacked linear convolutional layers after concatenation
-    H = RR_CONV(H, channel, stack_num=stack_num, recur_num=recur_num, 
-                      activation=activation, batch_norm=batch_norm, name=name)
-    
+    H = RR_CONV(
+        H,
+        channel,
+        stack_num=stack_num,
+        recur_num=recur_num,
+        activation=activation,
+        batch_norm=batch_norm,
+        name=name,
+    )
+
     return H
 
-def r2_unet_2d_base(input_tensor, filter_num, stack_num_down=2, stack_num_up=2, recur_num=2,
-                    activation='ReLU', batch_norm=False, pool=True, unpool=True, name='res_unet'):
-    
-    '''
+
+def r2_unet_2d_base(
+    input_tensor,
+    filter_num,
+    stack_num_down=2,
+    stack_num_up=2,
+    recur_num=2,
+    activation="ReLU",
+    batch_norm=False,
+    pool=True,
+    unpool=True,
+    name="res_unet",
+):
+    """
     The base of Recurrent Residual (R2) U-Net.
     
     r2_unet_2d_base(input_tensor, filter_num, stack_num_down=2, stack_num_up=2, recur_num=2,
@@ -189,38 +279,74 @@ def r2_unet_2d_base(input_tensor, filter_num, stack_num_down=2, stack_num_up=2, 
     ----------
         X: output tensor.
     
-    '''
-    
+    """
+
     activation_func = eval(activation)
 
     X = input_tensor
     X_skip = []
-    
+
     # downsampling blocks
-    X = RR_CONV(X, filter_num[0], stack_num=stack_num_down, recur_num=recur_num, 
-                      activation=activation, batch_norm=batch_norm, name='{}_down0'.format(name))
+    X = RR_CONV(
+        X,
+        filter_num[0],
+        stack_num=stack_num_down,
+        recur_num=recur_num,
+        activation=activation,
+        batch_norm=batch_norm,
+        name="{}_down0".format(name),
+    )
     X_skip.append(X)
-    
+
     for i, f in enumerate(filter_num[1:]):
-        X = UNET_RR_left(X, f, kernel_size=3, stack_num=stack_num_down, recur_num=recur_num, 
-                          activation=activation, pool=pool, batch_norm=batch_norm, name='{}_down{}'.format(name, i+1))        
+        X = UNET_RR_left(
+            X,
+            f,
+            kernel_size=3,
+            stack_num=stack_num_down,
+            recur_num=recur_num,
+            activation=activation,
+            pool=pool,
+            batch_norm=batch_norm,
+            name="{}_down{}".format(name, i + 1),
+        )
         X_skip.append(X)
-    
+
     # upsampling blocks
     X_skip = X_skip[:-1][::-1]
     for i, f in enumerate(filter_num[:-1][::-1]):
-        X = UNET_RR_right(X, [X_skip[i],], f, stack_num=stack_num_up, recur_num=recur_num, 
-                           activation=activation, unpool=unpool, batch_norm=batch_norm, name='{}_up{}'.format(name, i+1))
-    
+        X = UNET_RR_right(
+            X,
+            [
+                X_skip[i],
+            ],
+            f,
+            stack_num=stack_num_up,
+            recur_num=recur_num,
+            activation=activation,
+            unpool=unpool,
+            batch_norm=batch_norm,
+            name="{}_up{}".format(name, i + 1),
+        )
+
     return X
 
 
-def r2_unet_2d(input_size, filter_num, n_labels, 
-               stack_num_down=2, stack_num_up=2, recur_num=2,
-               activation='ReLU', output_activation='Softmax', 
-               batch_norm=False, pool=True, unpool=True, name='r2_unet'):
-    
-    '''
+def r2_unet_2d(
+    input_size,
+    filter_num,
+    n_labels,
+    stack_num_down=2,
+    stack_num_up=2,
+    recur_num=2,
+    activation="ReLU",
+    output_activation="Softmax",
+    batch_norm=False,
+    pool=True,
+    unpool=True,
+    name="r2_unet",
+):
+    """
     Recurrent Residual (R2) U-Net
     
     r2_unet_2d(input_size, filter_num, n_labels, 
@@ -259,21 +385,35 @@ def r2_unet_2d(input_size, filter_num, n_labels,
     ----------
         model: a keras model.
     
-    '''
-    
+    """
+
     activation_func = eval(activation)
 
-    IN = Input(input_size, name='{}_input'.format(name))
+    IN = Input(input_size, name="{}_input".format(name))
 
     # base
-    X = r2_unet_2d_base(IN, filter_num, 
-                        stack_num_down=stack_num_down, stack_num_up=stack_num_up, recur_num=recur_num,
-                        activation=activation, batch_norm=batch_norm, pool=pool, unpool=unpool, name=name)
+    X = r2_unet_2d_base(
+        IN,
+        filter_num,
+        stack_num_down=stack_num_down,
+        stack_num_up=stack_num_up,
+        recur_num=recur_num,
+        activation=activation,
+        batch_norm=batch_norm,
+        pool=pool,
+        unpool=unpool,
+        name=name,
+    )
     # output layer
-    OUT = CONV_output(X, n_labels, kernel_size=1, activation=output_activation, name='{}_output'.format(name))
-    
-    # functional API model
-    model = Model(inputs=[IN], outputs=[OUT], name='{}_model'.format(name))
-    
-    return model 
+    OUT = CONV_output(
+        X,
+        n_labels,
+        kernel_size=1,
+        activation=output_activation,
+        name="{}_output".format(name),
+    )
 
+    # functional API model
+    model = Model(inputs=[IN], outputs=[OUT], name="{}_model".format(name))
+
+    return model
