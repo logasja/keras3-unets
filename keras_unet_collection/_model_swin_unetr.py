@@ -211,9 +211,7 @@ from __future__ import absolute_import
 import os
 
 from math import log2
-import tensorflow as tf
 import keras
-from keras.models import Model
 
 from keras_unet_collection.transformer_layers import patch_extract
 from keras_unet_collection.layer_utils import *
@@ -267,7 +265,7 @@ def build_unetr_2d(cf):
     """ Patch + Position Embeddings """
     patch_embed = keras.layers.Dense(cf["hidden_dim"])(X)  ## (None, 256, 768)
 
-    positions = tf.range(start=0, limit=cf["num_patches"], delta=1)  ## (256,)
+    positions = keras.ops.arange(start=0, stop=cf["num_patches"], step=1)  ## (256,)
     pos_embed = keras.layers.Embedding(
         input_dim=cf["num_patches"], output_dim=cf["hidden_dim"]
     )(positions)  ## (256, 768)
@@ -373,10 +371,10 @@ def build_unetr_2d(cf):
         padding="same",
         activation="sigmoid",
         use_bias=True,
-        bias_initializer=all_zero_init,
+        bias_initializer=keras.initializers.zeros,
     )(x)
 
-    return Model(inputs, outputs, name="UNETR_2D")
+    return keras.Model(inputs, outputs, name="UNETR_2D")
 
 
 if __name__ == "__main__":

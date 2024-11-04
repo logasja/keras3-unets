@@ -8,10 +8,8 @@ from keras_unet_collection._model_unet_2d import UNET_left, UNET_right
 from keras_unet_collection.transformer_layers import patch_extract, patch_embedding
 from keras_unet_collection._backbone_zoo import backbone_zoo, bach_norm_checker
 
-import tensorflow as tf
-from keras.layers import Input
-from keras.models import Model
-from keras.layers import Layer, MultiHeadAttention, LayerNormalization, Dense, Embedding
+from keras import ops, Input, Model, Layer
+from keras.layers import MultiHeadAttention, LayerNormalization, Dense, Embedding, Conv2D
 
 
 def ViT_MLP(X, filter_num, activation="GELU", name="MLP"):
@@ -306,7 +304,7 @@ def transunet_2d_base(
         )
 
     # reshape patches to feature maps
-    X = tf.reshape(X, (-1, encode_size, encode_size, embed_dim))
+    X = ops.reshape(X, (-1, encode_size, encode_size, embed_dim))
 
     # 1-by-1 linear transformation to adjust the number of channels
     X = Conv2D(

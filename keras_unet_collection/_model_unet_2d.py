@@ -2,17 +2,13 @@
 
 from __future__ import absolute_import
 
-import numpy as np
-import tensorflow as tf
 from keras_unet_collection.layer_utils import *
 from keras_unet_collection.activations import GELU, Snake
 from keras_unet_collection._backbone_zoo import backbone_zoo
 from keras_unet_collection._backbone_zoo import bach_norm_checker
 from keras_unet_collection.efficientvit import EfficientViT_B
 
-from keras.layers import Input
-from keras.models import Model
-
+from keras import Input, Model
 
 def UNET_left(
     X,
