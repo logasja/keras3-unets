@@ -1,11 +1,5 @@
 *.png
 
-# author's testing scripts
-*TEST*
-pyproject.toml
-setup.cfg
-setup.py
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

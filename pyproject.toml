@@ -1,0 +1,22 @@
+[project]
+name = "keras3_unets"
+version = "0.0.1"
+authors = [
+  { name="Jacob Logas", email="logasja@gatech.edu" },
+]
+description = ""
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT Software License",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+]
+keywords=[]
+dependencies = ["keras>=3.0.0"]
+
+[project.urls]
+Homepage = "https://github.com/logasja/keras3-unets"
+Issues = "https://github.com/logasja/keras3-unets/issues"
