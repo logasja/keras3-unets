@@ -56,6 +56,7 @@ distance-dirty = "{next_version}.dev{distance}+{vcs}{rev}.dirty"
 extra-dependencies = [
   "torch",
   "ruff",
+  "pre-commit",
 ]
 
 [tool.hatch.envs.test]
