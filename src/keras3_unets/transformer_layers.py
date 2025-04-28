@@ -3,13 +3,9 @@ from __future__ import absolute_import
 
 import numpy as np
 
-from keras import ops, random, initializers, backend as K, activations, Layer
+from keras import ops, random, initializers, backend as K, activations
 
-from keras.layers import Conv2D
-from keras.layers import Dense
-from keras.layers import Embedding
-from keras.layers import Dropout
-from keras.layers import LayerNormalization
+from keras.layers import Conv2D, Dense, Embedding, Dropout, LayerNormalization, Layer
 
 
 class patch_extract(Layer):
@@ -177,9 +173,9 @@ class patch_merging(Layer):
         B, L, C = x.get_shape().as_list()
 
         assert L == H * W, "input feature has wrong size"
-        assert (
-            H % 2 == 0 and W % 2 == 0
-        ), "{}-by-{} patches received, they are not even.".format(H, W)
+        assert H % 2 == 0 and W % 2 == 0, (
+            "{}-by-{} patches received, they are not even.".format(H, W)
+        )
 
         # Convert the patch sequence to aligned patches
         x = ops.reshape(x, shape=(-1, H, W, C))
@@ -279,6 +275,7 @@ class patch_expanding(Layer):
         # rearange depth to number of patches
         if K.backend() == "tensorflow":
             from tensorflow.nn import depth_to_space
+
             x = depth_to_space(
                 x,
                 self.upsample_rate,
@@ -287,10 +284,8 @@ class patch_expanding(Layer):
             )
         elif K.backend() == "torch":
             from torch.nn.functional import pixel_shuffle
-            x = pixel_shuffle(
-                x,
-                self.upsample_rate
-            )
+
+            x = pixel_shuffle(x, self.upsample_rate)
 
         if self.return_vector:
             # Convert aligned patches to a patch sequence
@@ -631,9 +626,9 @@ class SwinTransformerBlock(Layer):
 
         # Assertions
         assert 0 <= self.shift_size, "shift_size >= 0 is required"
-        assert (
-            self.shift_size < self.window_size
-        ), "shift_size < window_size is required"
+        assert self.shift_size < self.window_size, (
+            "shift_size < window_size is required"
+        )
 
         # <---!!!
         # Handling too-small patch numbers

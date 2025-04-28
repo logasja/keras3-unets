@@ -29,9 +29,8 @@ This was modified October 2024 by Paul Thompson,
 mostly to make it Keras3 compatible.
 
 """
-# ruff: noqa: F401
 
-import keras
+from keras import layers, models, ops
 
 
 def mb_conv(
@@ -45,14 +44,12 @@ def mb_conv(
     use_norm=True,
     use_output_norm=True,
     drop_rate=0,
-    activation="keras.activations.hard_silu",
+    activation="hard_silu",
     name="",
 ):
-    activation_func = eval(activation)
-
     input_channel = inputs.shape[-1]
     if is_fused:
-        nn = keras.layers.Conv2D(
+        nn = layers.Conv2D(
             int(input_channel * expansion),
             3,
             strides,
@@ -60,14 +57,10 @@ def mb_conv(
             name=name and name + "expand_conv",
         )(inputs)
         if use_norm:
-            nn = keras.layers.BatchNormalization(momentum=0.9, name=name + "expand_bn")(
-                nn
-            )
-        nn = keras.layers.Activation(
-            activation_func, name="{}_activation".format(name)
-        )(nn)
+            nn = layers.BatchNormalization(momentum=0.9, name=name + "expand_bn")(nn)
+        nn = layers.Activation(activation, name="{}_activation".format(name))(nn)
     elif expansion > 1:
-        nn = keras.layers.Conv2D(
+        nn = layers.Conv2D(
             int(input_channel * expansion),
             1,
             strides=1,
@@ -75,28 +68,22 @@ def mb_conv(
             name=name + "expand_conv",
         )(inputs)
         if use_norm:
-            nn = keras.layers.BatchNormalization(momentum=0.9, name=name + "expand_bn")(
-                nn
-            )
-        nn = keras.layers.Activation(
-            activation_func, name="{}_activation".format(name)
-        )(nn)
+            nn = layers.BatchNormalization(momentum=0.9, name=name + "expand_bn")(nn)
+        nn = layers.Activation(activation, name="{}_activation".format(name))(nn)
     else:
         nn = inputs
 
     if not is_fused:
-        nn = keras.layers.DepthwiseConv2D(
+        nn = layers.DepthwiseConv2D(
             3, strides=strides, use_bias=use_bias, padding="same", name=name + "dw_conv"
         )(nn)
         if use_norm:
-            nn = keras.layers.BatchNormalization(momentum=0.9, name=name + "dw_bn")(nn)
-        nn = keras.layers.Activation(
-            activation_func, name="{}_dw_activation".format(name)
-        )(nn)
+            nn = layers.BatchNormalization(momentum=0.9, name=name + "dw_bn")(nn)
+        nn = layers.Activation(activation, name="{}_dw_activation".format(name))(nn)
 
     pw_kernel_size = 3 if is_fused and expansion == 1 else 1
 
-    nn = keras.layers.Conv2D(
+    nn = layers.Conv2D(
         output_channel,
         pw_kernel_size,
         strides=1,
@@ -105,15 +92,15 @@ def mb_conv(
         name=name + "pw_conv",
     )(nn)
     if use_output_norm:
-        nn = keras.layers.BatchNormalization(
+        nn = layers.BatchNormalization(
             momentum=0.9, gamma_initializer="zeros", name=name + "pw_bn"
         )(nn)
-    nn = keras.layers.Dropout(rate=drop_rate, name=name + "dropout")(nn)
+    nn = layers.Dropout(rate=drop_rate, name=name + "dropout")(nn)
 
     return (
-        keras.layers.Add(name=name + "output")([inputs, nn])
+        layers.Add(name=name + "output")([inputs, nn])
         if shortcut
-        else keras.layers.Activation("linear", name=name + "output")(nn)
+        else layers.Activation("linear", name=name + "output")(nn)
     )
 
 
@@ -127,7 +114,7 @@ def lite_mhsa(
     out_bias=False,
     use_norm=True,
     dropout=0,
-    activation="keras.activations.relu",
+    activation="relu",
     name=None,
 ):
     input_channel = inputs.shape[-1]
@@ -137,62 +124,57 @@ def lite_mhsa(
     emb_dim = num_heads * key_dim
 
     # query = layers.Dense(emb_dim, use_bias=qkv_bias, name=name and name + "query")(inputs)
-    qkv = keras.layers.Conv2D(
+    qkv = layers.Conv2D(
         emb_dim * 3, 1, use_bias=qkv_bias, name=name and name + "qkv_conv"
     )(inputs)
-    sr_qkv = keras.layers.DepthwiseConv2D(
+    sr_qkv = layers.DepthwiseConv2D(
         kernel_size=sr_ratio,
         use_bias=qkv_bias,
         padding="same",
         name=name and name + "qkv_dw_conv",
     )(qkv)
-    sr_qkv = keras.layers.Conv2D(
+    sr_qkv = layers.Conv2D(
         emb_dim * 3,
         1,
         use_bias=qkv_bias,
         groups=3 * num_heads,
         name=name and name + "qkv_pw_conv",
     )(sr_qkv)
-    qkv = keras.ops.concatenate([qkv, sr_qkv], axis=-1)
+    qkv = ops.concatenate([qkv, sr_qkv], axis=-1)
 
-    qkv = keras.ops.reshape(
+    qkv = ops.reshape(
         qkv, [-1, height * width, qkv.shape[-1] // (3 * key_dim), 3 * key_dim]
     )
-    query, key, value = keras.ops.split(qkv, 3, axis=-1)
-    query = keras.ops.transpose(query, [0, 2, 1, 3])
-    key = keras.ops.transpose(key, [0, 2, 3, 1])
-    value = keras.ops.transpose(value, [0, 2, 1, 3])
+    query, key, value = ops.split(qkv, 3, axis=-1)
+    query = ops.transpose(query, [0, 2, 1, 3])
+    key = ops.transpose(key, [0, 2, 3, 1])
+    value = ops.transpose(value, [0, 2, 1, 3])
 
-    activation_func = eval(activation)
-    query = keras.layers.Activation(
-        activation_func, name="{}_query_activation".format(name)
-    )(query)
-    key = keras.layers.Activation(
-        activation_func, name="{}_key_activation".format(name)
-    )(key)
+    query = layers.Activation(activation, name="{}_query_activation".format(name))(
+        query
+    )
+    key = layers.Activation(activation, name="{}_key_activation".format(name))(key)
 
     query_key = query @ key
-    scale = keras.ops.sum(query_key, axis=-1, keepdims=True)
+    scale = ops.sum(query_key, axis=-1, keepdims=True)
     attention_output = (
         query_key @ value / (scale + 1e-7)
     )  # 1e-7 for also working on float16
     # print(f">>>> {inputs.shape = }, {emb_dim = }, {num_heads = }, {key_dim = }, {attention_output.shape = }")
 
-    output = keras.ops.transpose(
+    output = ops.transpose(
         attention_output, [0, 2, 1, 3]
     )  # [batch, q_blocks, num_heads * 2, key_dim]
-    output = keras.ops.reshape(
-        output, [-1, height, width, output.shape[2] * output.shape[3]]
-    )
+    output = ops.reshape(output, [-1, height, width, output.shape[2] * output.shape[3]])
 
     # print(f">>>> {output.shape = }")
-    output = keras.layers.Conv2D(
+    output = layers.Conv2D(
         out_shape, 1, use_bias=out_bias, name=name and name + "out_conv"
     )(output)
     if use_norm:
-        output = keras.layers.BatchNormalization(
-            momentum=0.9, name=name and name + "out_bn"
-        )(output)
+        output = layers.BatchNormalization(momentum=0.9, name=name and name + "out_bn")(
+            output
+        )
     return output
 
 
@@ -206,7 +188,7 @@ def EfficientViT_B(
     head_dimension=16,  # `num_heads = channels // head_dimension`
     output_filters=[1024, 1280],
     input_shape=(224, 224, 3),
-    activation="keras.activations.hard_silu",
+    activation="hard_silu",
     drop_connect_rate=0,
     dropout=0,
     use_norm=True,
@@ -214,24 +196,22 @@ def EfficientViT_B(
     kwargs=None,
     unet_output=False,
 ):
-    inputs = keras.layers.Input(input_shape)
+    inputs = layers.Input(input_shape)
     is_fused = (
         is_fused
         if isinstance(is_fused, (list, tuple))
         else ([is_fused] * len(num_blocks))
     )
 
-    activation_func = eval(activation)
-
     unet_outputs = []
 
     """ stage 0, Stem_stage """
-    nn = keras.layers.Conv2D(
-        stem_width, 3, strides=2, padding="same", name="stem_conv"
-    )(inputs)
+    nn = layers.Conv2D(stem_width, 3, strides=2, padding="same", name="stem_conv")(
+        inputs
+    )
     if use_norm:
-        nn = keras.layers.BatchNormalization(momentum=0.9, name="stem_bn")(nn)
-    nn = keras.layers.Activation(activation_func, name="stem_activation_")(nn)
+        nn = layers.BatchNormalization(momentum=0.9, name="stem_bn")(nn)
+    nn = layers.Activation(activation, name="stem_activation_")(nn)
 
     if unet_output:
         unet_outputs.append(nn)  # 2x downsample
@@ -335,10 +315,10 @@ def EfficientViT_B(
         else (output_filters, 0)
     )
     if output_filters[0] > 0:
-        nn = keras.layers.Conv2D(output_filters[0], 1, name="features_conv")(nn)
+        nn = layers.Conv2D(output_filters[0], 1, name="features_conv")(nn)
         if use_norm:
-            nn = keras.layers.BatchNormalization(momentum=0.9, name="features_bn")(nn)
-        nn = keras.layers.Activation(activation_func, name="features_activation")(nn)
+            nn = layers.BatchNormalization(momentum=0.9, name="features_bn")(nn)
+        nn = layers.Activation(activation, name="features_activation")(nn)
 
     if unet_output:
         # remove last
@@ -346,6 +326,6 @@ def EfficientViT_B(
         unet_outputs.append(nn)
         nn = unet_outputs
 
-    model = keras.models.Model(inputs, nn, name=model_name)
+    model = models.Model(inputs, nn, name=model_name)
 
     return model

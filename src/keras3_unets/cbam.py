@@ -1,82 +1,80 @@
 # https://www.kaggle.com/code/ipythonx/keras-ranzcr-multi-attention-efficientnet-tpu/comments?scriptVersionId=88108908
 # Apache license
-# ruff: noqa: F401
-
-import keras
+from keras import ops, layers, activations, initializers, backend
 
 
-class SpatialAttentionModule(keras.layers.Layer):
+class SpatialAttentionModule(layers.Layer):
     def __init__(self, kernel_size=3):
         """
         paper: https://arxiv.org/abs/1807.06521
         code: https://gist.github.com/innat/99888fa8065ecbf3ae2b297e5c10db70
         """
         super().__init__()
-        self.conv1 = keras.layers.Conv2D(
+        self.conv1 = layers.Conv2D(
             64,
             kernel_size=kernel_size,
             use_bias=False,
             kernel_initializer="he_normal",
             strides=1,
             padding="same",
-            activation=keras.activations.relu,
+            activation=activations.relu,
         )
-        self.conv2 = keras.layers.Conv2D(
+        self.conv2 = layers.Conv2D(
             32,
             kernel_size=kernel_size,
             use_bias=False,
             kernel_initializer="he_normal",
             strides=1,
             padding="same",
-            activation=keras.activations.relu,
+            activation=activations.relu,
         )
-        self.conv3 = keras.layers.Conv2D(
+        self.conv3 = layers.Conv2D(
             16,
             kernel_size=kernel_size,
             use_bias=False,
             kernel_initializer="he_normal",
             strides=1,
             padding="same",
-            activation=keras.activations.relu,
+            activation=activations.relu,
         )
-        self.conv4 = keras.layers.Conv2D(
+        self.conv4 = layers.Conv2D(
             1,
             kernel_size=(1, 1),
             use_bias=False,
             kernel_initializer="he_normal",
             strides=1,
             padding="same",
-            activation=keras.activations.sigmoid,
+            activation=activations.sigmoid,
         )
 
     def call(self, inputs):
-        avg_out = keras.ops.mean(inputs, axis=3)
-        max_out = keras.ops.max(inputs, axis=3)
-        x = keras.ops.stack([avg_out, max_out], axis=3)
+        avg_out = ops.mean(inputs, axis=3)
+        max_out = ops.max(inputs, axis=3)
+        x = ops.stack([avg_out, max_out], axis=3)
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
         return self.conv4(x)
 
 
-class ChannelAttentionModule(keras.layers.Layer):
+class ChannelAttentionModule(layers.Layer):
     def __init__(self, ratio=1):
         """paper: https://arxiv.org/abs/1807.06521
         code: https://gist.github.com/innat/99888fa8065ecbf3ae2b297e5c10db70
         """
         super(ChannelAttentionModule, self).__init__()
         self.ratio = ratio
-        self.gapavg = keras.layers.GlobalAveragePooling2D()
-        self.gmpmax = keras.layers.GlobalMaxPooling2D()
+        self.gapavg = layers.GlobalAveragePooling2D()
+        self.gmpmax = layers.GlobalMaxPooling2D()
 
     def build(self, input_shape):
-        self.conv2 = keras.layers.Conv2D(
+        self.conv2 = layers.Conv2D(
             input_shape[-1],
             kernel_size=1,
             strides=1,
             padding="same",
             use_bias=False,
-            activation=keras.activations.relu,
+            activation=activations.relu,
         )
         super(ChannelAttentionModule, self).build(input_shape)
 
@@ -84,22 +82,22 @@ class ChannelAttentionModule(keras.layers.Layer):
         # compute gap and gmp pooling
         gapavg = self.gapavg(inputs)
         gmpmax = self.gmpmax(inputs)
-        gapavg = keras.layers.Reshape((1, 1, gapavg.shape[1]))(gapavg)
-        gmpmax = keras.layers.Reshape((1, 1, gmpmax.shape[1]))(gmpmax)
+        gapavg = layers.Reshape((1, 1, gapavg.shape[1]))(gapavg)
+        gmpmax = layers.Reshape((1, 1, gmpmax.shape[1]))(gmpmax)
         # forward passing to the respected layers
         gapavg_out = self.conv2(gapavg)
         gmpmax_out = self.conv2(gmpmax)
-        return keras.activations.sigmoid(gapavg_out + gmpmax_out)
+        return activations.sigmoid(gapavg_out + gmpmax_out)
 
 
 # Original Src: https://github.com/bfelbo/DeepMoji/blob/master/deepmoji/attlayer.py
-class AttentionWeightedAverage2D(keras.layers.Layer):
+class AttentionWeightedAverage2D(layers.Layer):
     def __init__(self, **kwargs):
-        self.init = keras.initializers.get("uniform")
+        self.init = initializers.get("uniform")
         super(AttentionWeightedAverage2D, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        self.input_spec = [keras.layers.InputSpec(ndim=4)]
+        self.input_spec = [layers.InputSpec(ndim=4)]
         assert len(input_shape) == 4
         self.W = self.add_weight(
             shape=(input_shape[3], 1),
@@ -114,16 +112,14 @@ class AttentionWeightedAverage2D(keras.layers.Layer):
         # uses 'max trick' for numerical stability
         # reshape is done to avoid issue with Tensorflow
         # and 2-dimensional weights
-        logits = keras.ops.dot(x, self.W)
-        x_shape = keras.shape(x)
-        logits = keras.ops.reshape(logits, (x_shape[0], x_shape[1], x_shape[2]))
-        ai = keras.ops.exp(logits - keras.ops.max(logits, axis=[1, 2], keepdims=True))
+        logits = ops.dot(x, self.W)
+        x_shape = ops.shape(x)
+        logits = ops.reshape(logits, (x_shape[0], x_shape[1], x_shape[2]))
+        ai = ops.exp(logits - ops.max(logits, axis=[1, 2], keepdims=True))
 
-        att_weights = ai / (
-            keras.ops.sum(ai, axis=[1, 2], keepdims=True) + keras.backend.epsilon()
-        )
-        weighted_input = x * keras.ops.expand_dims(att_weights)
-        result = keras.ops.sum(weighted_input, axis=[1, 2])
+        att_weights = ai / (ops.sum(ai, axis=[1, 2], keepdims=True) + backend.epsilon())
+        weighted_input = x * ops.expand_dims(att_weights)
+        result = ops.sum(weighted_input, axis=[1, 2])
         return result
 
     def get_output_shape_for(self, input_shape):
@@ -140,7 +136,7 @@ def cbam_block(base_out, ratio=1):
     san_module = StripPooling()
     # san_module_x = SpatialAttentionModule()
     # san_module_y = SpatialAttentionModule()
-    awn_module = AttentionWeightedAverage2D()
+    # awn_module = AttentionWeightedAverage2D()
 
     # Attention Modules 1
     # Channel Attention + Spatial Attention
@@ -163,32 +159,32 @@ def cbam_block(base_out, ratio=1):
 
 
 # https://openaccess.thecvf.com/content_CVPR_2020/papers/Hou_Strip_Pooling_Rethinking_Spatial_Pooling_for_Scene_Parsing_CVPR_2020_paper.pdf
-class StripPooling(keras.layers.Layer):
+class StripPooling(layers.Layer):
     def __init(self, **kwargs):
         super(StripPooling, self).__init__(**kwargs)
 
     def build(self, input_shape):
-        self.expand_vertical = keras.layers.Conv2D(
+        self.expand_vertical = layers.Conv2D(
             input_shape[-1], (1, 1), use_bias=False, kernel_initializer="he_normal"
         )
-        self.expand_horizontal = keras.layers.Conv2D(
+        self.expand_horizontal = layers.Conv2D(
             input_shape[-1], (1, 1), use_bias=False, kernel_initializer="he_normal"
         )
-        self.fuse = keras.layers.Add()
-        self.conv1x1 = keras.layers.Conv2D(
+        self.fuse = layers.Add()
+        self.conv1x1 = layers.Conv2D(
             input_shape[-1], (1, 1), use_bias=False, kernel_initializer="he_normal"
         )
-        self.sigmoid = keras.layers.Activation("sigmoid")
+        self.sigmoid = layers.Activation("sigmoid")
 
     def call(self, inputs):
         # Vertical pooling
-        pooled_vertical = keras.ops.mean(
+        pooled_vertical = ops.mean(
             inputs, axis=2, keepdims=True
         )  # Shape: (batch_size, H, 1, channels)
         pooled_vertical = self.expand_vertical(pooled_vertical)
 
         # Horizontal pooling
-        pooled_horizontal = keras.ops.mean(
+        pooled_horizontal = ops.mean(
             inputs, axis=1, keepdims=True
         )  # Shape: (batch_size, 1, W, channels)
         pooled_horizontal = self.expand_horizontal(pooled_horizontal)

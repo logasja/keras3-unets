@@ -1,10 +1,13 @@
 from __future__ import absolute_import
 
+from typing import Literal
 import numpy as np
-from keras import backend as K, ops
+from keras import backend as K, ops, KerasTensor
 
 
-def _crps_tf(y_true, y_pred, factor=0.05):
+def _crps(
+    y_true: KerasTensor, y_pred: KerasTensor, factor: float = 0.05
+) -> KerasTensor:
     """
     core of (pseudo) CRPS loss.
 
@@ -14,14 +17,14 @@ def _crps_tf(y_true, y_pred, factor=0.05):
     """
 
     # mean absolute error
-    mae = K.mean(ops.abs(y_pred - y_true))
+    mae = ops.mean(ops.abs(y_pred - y_true))
 
     dist = ops.std(y_pred)
 
     return mae - factor * dist
 
 
-def crps2d_tf(y_true, y_pred, factor=0.05):
+def crps2d(y_true: KerasTensor, y_pred: KerasTensor, factor: float = 0.05):
     """
     (Experimental)
     An approximated continuous ranked probability score (CRPS) loss function:
@@ -55,7 +58,7 @@ def crps2d_tf(y_true, y_pred, factor=0.05):
 
     crps_out = 0
     for i in range(batch_num):
-        crps_out += _crps_tf(y_true[i, ...], y_pred[i, ...], factor=factor)
+        crps_out += _crps(y_true[i, ...], y_pred[i, ...], factor=factor)
 
     return crps_out / batch_num
 
@@ -75,9 +78,9 @@ def _crps_np(y_true, y_pred, factor=0.05):
 def crps2d_np(y_true, y_pred, factor=0.05):
     """
     (Experimental)
-    Nunpy version of `crps2d_tf`.
+    Numpy version of `crps2d`.
 
-    Documentation refers to `crps2d_tf`.
+    Documentation refers to `crps2d`.
     """
 
     y_true = np.squeeze(y_true)
@@ -96,7 +99,9 @@ def crps2d_np(y_true, y_pred, factor=0.05):
 # Dice loss and variants
 
 
-def dice_coef(y_true, y_pred, const=K.epsilon()):
+def dice_coef(
+    y_true: KerasTensor, y_pred: KerasTensor, const: float = K.epsilon()
+) -> KerasTensor:
     """
     Sørensen–Dice coefficient for 2-d samples.
 
@@ -122,7 +127,9 @@ def dice_coef(y_true, y_pred, const=K.epsilon()):
     return coef_val
 
 
-def dice(y_true, y_pred, const=K.epsilon()):
+def dice(
+    y_true: KerasTensor, y_pred: KerasTensor, const: float = K.epsilon()
+) -> KerasTensor:
     """
     Sørensen–Dice Loss.
 
@@ -133,7 +140,7 @@ def dice(y_true, y_pred, const=K.epsilon()):
         const: a constant that smooths the loss gradient and reduces numerical instabilities.
 
     """
-    # tf tensor casting
+    # tensor casting
     y_pred = ops.convert_to_tensor(y_pred)
     y_true = ops.cast(y_true, y_pred.dtype)
 
@@ -150,7 +157,12 @@ def dice(y_true, y_pred, const=K.epsilon()):
 # Tversky loss and variants
 
 
-def tversky_coef(y_true, y_pred, alpha=0.5, const=K.epsilon()):
+def tversky_coef(
+    y_true: KerasTensor,
+    y_pred: KerasTensor,
+    alpha: float = 0.5,
+    const: float = K.epsilon(),
+) -> KerasTensor:
     """
     Weighted Sørensen–Dice coefficient.
 
@@ -178,7 +190,12 @@ def tversky_coef(y_true, y_pred, alpha=0.5, const=K.epsilon()):
     return coef_val
 
 
-def tversky(y_true, y_pred, alpha=0.5, const=K.epsilon()):
+def tversky(
+    y_true: KerasTensor,
+    y_pred: KerasTensor,
+    alpha: float = 0.5,
+    const: float = K.epsilon(),
+) -> KerasTensor:
     """
     Tversky Loss.
 
@@ -208,7 +225,13 @@ def tversky(y_true, y_pred, alpha=0.5, const=K.epsilon()):
     return loss_val
 
 
-def focal_tversky(y_true, y_pred, alpha=0.5, gamma=4 / 3, const=K.epsilon()):
+def focal_tversky(
+    y_true: KerasTensor,
+    y_pred: KerasTensor,
+    alpha: float = 0.5,
+    gamma: float = 4 / 3,
+    const: float = K.epsilon(),
+) -> KerasTensor:
     """
     Focal Tversky Loss (FTL)
 
@@ -246,7 +269,7 @@ def focal_tversky(y_true, y_pred, alpha=0.5, gamma=4 / 3, const=K.epsilon()):
 # MS-SSIM
 
 
-def ms_ssim(y_true, y_pred, **kwargs):
+def ms_ssim(y_true: KerasTensor, y_pred: KerasTensor, **kwargs) -> KerasTensor:
     """
     Multiscale structural similarity (MS-SSIM) loss.
 
@@ -265,23 +288,26 @@ def ms_ssim(y_true, y_pred, **kwargs):
                 https://stackoverflow.com/questions/57127626/error-in-calculation-of-inbuilt-ms-ssim-function-in-tensorflow
 
     """
-
-    raise NotImplementedError("Not implemented in backend agnostic keras 3")
     y_pred = ops.convert_to_tensor(y_pred)
     y_true = ops.cast(y_true, y_pred.dtype)
 
     y_pred = ops.squeeze(y_pred)
     y_true = ops.squeeze(y_true)
 
-    tf_ms_ssim = ops.image.ssim_multiscale(y_true, y_pred, **kwargs)
+    ms_ssim = ops.image.ssim_multiscale(y_true, y_pred, **kwargs)
 
-    return 1 - tf_ms_ssim
+    return 1 - ms_ssim
 
 
 # ======================== #
 
 
-def iou_box_coef(y_true, y_pred, mode="giou", dtype=K.floatx()):
+def iou_box_coef(
+    y_true: KerasTensor,
+    y_pred: KerasTensor,
+    mode: Literal["giou"] | Literal["iou"] = "giou",
+    dtype: str = K.floatx(),
+) -> KerasTensor:
     """
     Inersection over Union (IoU) and generalized IoU coefficients for bounding boxes.
 
@@ -358,11 +384,16 @@ def iou_box_coef(y_true, y_pred, mode="giou", dtype=K.floatx()):
         return giou
 
 
-def iou_box(y_true, y_pred, mode="giou", dtype=K.floatx()):
+def iou_box(
+    y_true: KerasTensor,
+    y_pred: KerasTensor,
+    mode: Literal["giou"] | Literal["iou"] = "giou",
+    dtype: str = K.floatx(),
+) -> KerasTensor:
     """
     Inersection over Union (IoU) and generalized IoU losses for bounding boxes.
 
-    iou_box(y_true, y_pred, mode='giou', dtype=tf.float32)
+    iou_box(y_true, y_pred, mode='giou', dtype="float32")
 
     ----------
     Rezatofighi, H., Tsoi, N., Gwak, J., Sadeghian, A., Reid, I. and Savarese, S., 2019.
@@ -380,7 +411,7 @@ def iou_box(y_true, y_pred, mode="giou", dtype=K.floatx()):
               'giou' for generalized IoU coeff.
 
         dtype: the data type of input tensors.
-               Default is tf.float32.
+               Default is float32.
 
     """
 
@@ -395,11 +426,13 @@ def iou_box(y_true, y_pred, mode="giou", dtype=K.floatx()):
     return 1 - iou_box_coef(y_true, y_pred, mode=mode, dtype=dtype)
 
 
-def iou_seg(y_true, y_pred, dtype=K.floatx()):
+def iou_seg(
+    y_true: KerasTensor, y_pred: KerasTensor, dtype: str = K.floatx()
+) -> KerasTensor:
     """
     Inersection over Union (IoU) loss for segmentation maps.
 
-    iou_seg(y_true, y_pred, dtype=tf.float32)
+    iou_seg(y_true, y_pred, dtype="float32")
 
     ----------
     Rahman, M.A. and Wang, Y., 2016, December. Optimizing intersection-over-union in deep neural networks for
@@ -411,7 +444,7 @@ def iou_seg(y_true, y_pred, dtype=K.floatx()):
         y_pred: segmentation predictions.
 
         dtype: the data type of input tensors.
-               Default is tf.float32.
+               Default is float32.
 
     """
 
@@ -439,7 +472,9 @@ def iou_seg(y_true, y_pred, dtype=K.floatx()):
 # Semi-hard triplet
 
 
-def triplet_1d(y_true, y_pred, N, margin=5.0):
+def triplet_1d(
+    y_true: KerasTensor, y_pred: KerasTensor, N: int, margin: float = 5.0
+) -> KerasTensor:
     """
     (Experimental)
     Semi-hard triplet loss with one-dimensional vectors of anchor, positive, and negative.
