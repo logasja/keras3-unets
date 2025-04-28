@@ -3,8 +3,6 @@ from __future__ import absolute_import
 
 import numpy as np
 
-from tensorflow.nn import depth_to_space
-
 from keras import ops, random, initializers, backend as K, activations, Layer
 
 from keras.layers import Conv2D
@@ -279,12 +277,20 @@ class patch_expanding(Layer):
         x = self.linear_trans1(x)
 
         # rearange depth to number of patches
-        x = depth_to_space(
-            x,
-            self.upsample_rate,
-            data_format="NHWC",
-            name="{}_d_to_space".format(self.prefix),
-        )
+        if K.backend() == "tensorflow":
+            from tensorflow.nn import depth_to_space
+            x = depth_to_space(
+                x,
+                self.upsample_rate,
+                data_format="NHWC",
+                name="{}_d_to_space".format(self.prefix),
+            )
+        elif K.backend() == "torch":
+            from torch.nn.functional import pixel_shuffle
+            x = pixel_shuffle(
+                x,
+                self.upsample_rate
+            )
 
         if self.return_vector:
             # Convert aligned patches to a patch sequence

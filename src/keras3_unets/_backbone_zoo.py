@@ -4,7 +4,7 @@ from __future__ import absolute_import
 from keras.applications import *
 from keras.models import Model
 
-from keras_unet_collection.utils import freeze_model
+from keras3_unets.utils import freeze_model
 
 import warnings
 

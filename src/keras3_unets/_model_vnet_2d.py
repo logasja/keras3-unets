@@ -2,8 +2,8 @@
 
 from __future__ import absolute_import
 
-from keras_unet_collection.layer_utils import *
-from keras_unet_collection.activations import GELU, Snake
+from keras3_unets.layer_utils import *
+from keras3_unets.activations import GELU, Snake
 
 from keras.layers import Input
 from keras.models import Model
@@ -173,7 +173,7 @@ def vnet_2d_base(
                     The depth is expected as `len(filter_num)`.
         res_num_ini: number of convolutional layers of the first first residual block (before downsampling).
         res_num_max: the max number of convolutional layers within a residual block.
-        activation: one of the `tensorflow.keras.layers` or `keras_unet_collection.activations` interfaces, e.g., 'ReLU'.
+        activation: one of the `tensorflow.keras.layers` or `keras3_unets.activations` interfaces, e.g., 'ReLU'.
         batch_norm: True for batch normalization.
         pool: True or 'max' for MaxPooling2D.
               'ave' for AveragePooling2D.
@@ -303,8 +303,8 @@ def vnet_2d(
         n_labels: number of output labels.
         res_num_ini: number of convolutional layers of the first first residual block (before downsampling).
         res_num_max: the max number of convolutional layers within a residual block.
-        activation: one of the `tensorflow.keras.layers` or `keras_unet_collection.activations` interfaces, e.g., 'ReLU'.
-        output_activation: one of the `tensorflow.keras.layers` or `keras_unet_collection.activations` interface or 'Sigmoid'.
+        activation: one of the `tensorflow.keras.layers` or `keras3_unets.activations` interfaces, e.g., 'ReLU'.
+        output_activation: one of the `tensorflow.keras.layers` or `keras3_unets.activations` interface or 'Sigmoid'.
                            Default option is 'Softmax'.
                            if None is received, then linear activation is applied.
         batch_norm: True for batch normalization.

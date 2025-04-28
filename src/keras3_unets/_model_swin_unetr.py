@@ -213,8 +213,8 @@ import os
 from math import log2
 import keras
 
-from keras_unet_collection.transformer_layers import patch_extract
-from keras_unet_collection.layer_utils import *
+from keras3_unets.transformer_layers import patch_extract
+from keras3_unets.layer_utils import *
 
 
 def mlp(x, cf):

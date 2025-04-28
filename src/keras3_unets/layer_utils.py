@@ -2,7 +2,7 @@
 
 from __future__ import absolute_import
 
-from keras_unet_collection.activations import GELU, Snake
+from keras3_unets.activations import GELU, Snake
 import numpy as np
 from keras import ops
 from keras.layers import (
@@ -548,7 +548,7 @@ def CONV_output(
         X: input tensor.
         n_labels: number of classification label(s).
         kernel_size: size of 2-d convolution kernels. Default is 1-by-1.
-        activation: one of the `tensorflow.keras.layers` or `keras_unet_collection.activations` interface or 'Sigmoid'.
+        activation: one of the `tensorflow.keras.layers` or `keras3_unets.activations` interface or 'Sigmoid'.
                     Default option is 'Softmax'.
                     if None is received, then linear activation is applied.
         name: prefix of the created keras layers.

@@ -1,22 +1,91 @@
+[build-system]
+requires = ["hatchling","versioningit"]
+build-backend = "hatchling.build"
+
 [project]
 name = "keras3_unets"
-version = "0.0.2"
-authors = [
-  { name="Jacob Logas", email="logasja@gatech.edu" },
-]
-description = ""
+dynamic = ["version"]
+description = 'A collection of pre-implemented UNet architectures in the Keras 3 backend.'
 readme = "README.md"
-requires-python = ">=3.8"
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT Software License",
-    "Programming Language :: Python :: 3.10",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence"
+requires-python = ">=3.11"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Jacob Logas", email = "jacob@logas.me" },
 ]
-keywords=[]
-dependencies = ["keras>=3.0.0"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = ["keras>=3", "numpy", "Pillow"]
+
+[project.optional-dependencies]
+torch = [
+  "torch",
+  "torchvision",
+]
+tf = [
+  "tensorflow",
+]
+tf-gpu = [
+  "tensorflow[and-cuda]"
+]
 
 [project.urls]
-Homepage = "https://github.com/logasja/keras3-unets"
+Documentation = "https://github.com/logasja/keras3-unets#readme"
 Issues = "https://github.com/logasja/keras3-unets/issues"
+Source = "https://github.com/logasja/keras3-unets"
+
+[tool.hatch.version]
+source = "versioningit"
+default-version = "0.0.0+unknown"
+
+[tool.hatch.version.format]
+distance = "{next_version}.dev{distance}+{vcs}{rev}"
+dirty = "{version}+dirty"
+distance-dirty = "{next_version}.dev{distance}+{vcs}{rev}.dirty"
+
+[tool.hatch.envs.dev]
+extra-dependencies = [
+  "torch",
+  "ruff",
+]
+
+[tool.hatch.envs.test]
+skip-install = true
+dependencies = [
+  "ipykernel"
+]
+
+[tool.hatch.envs.types]
+extra-dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/keras3_unets/tests}"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/keras3_unets"]
+
+[tool.coverage.run]
+source_pkgs = ["src/keras3_unets", "tests"]
+branch = true
+parallel = true
+
+[tool.coverage.paths]
+keras3_unets = ["src/keras3_unets"]
+tests = ["tests/"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]
