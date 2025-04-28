@@ -1,12 +1,9 @@
 # ruff: noqa: F401, F403
 
-from __future__ import absolute_import
+from keras import layers, Model
 
-from keras3_unets.layer_utils import *
 from keras3_unets.activations import GELU, Snake
-
-from keras.layers import Input
-from keras.models import Model
+from keras3_unets.layer_utils import CONV_output, CONV_stack, encode_layer, decode_layer
 
 
 def RSU(
@@ -64,7 +61,7 @@ def RSU(
         dilation_rate=1,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_in".format(name),
+        name=f"{name}_in",
     )
     X_skip.append(X)
 
@@ -76,7 +73,7 @@ def RSU(
         dilation_rate=1,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_down_0".format(name),
+        name=f"{name}_down_0",
     )
     X_skip.append(X)
 
@@ -88,7 +85,7 @@ def RSU(
             pool,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_encode_{}".format(name, i),
+            name=f"{name}_encode_{i}",
         )
 
         X = CONV_stack(
@@ -99,7 +96,7 @@ def RSU(
             dilation_rate=1,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_down_{}".format(name, i + 1),
+            name=f"{name}_down_{i + 1}",
         )
         X_skip.append(X)
 
@@ -111,13 +108,13 @@ def RSU(
         dilation_rate=2,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_up_0".format(name),
+        name=f"{name}_up_0",
     )
 
     X_skip = X_skip[::-1]
 
     for i in range(depth):
-        X = concatenate([X, X_skip[i]], axis=-1, name="{}_concat_{}".format(name, i))
+        X = layers.Concatenate([X, X_skip[i]], axis=-1, name=f"{name}_concat_{i}")
 
         X = CONV_stack(
             X,
@@ -127,7 +124,7 @@ def RSU(
             dilation_rate=1,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_up_{}".format(name, i + 1),
+            name=f"{name}_up_{i + 1}",
         )
 
         X = decode_layer(
@@ -137,10 +134,10 @@ def RSU(
             unpool,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_decode_{}".format(name, i),
+            name=f"{name}_decode_{i}",
         )
 
-    X = concatenate([X, X_skip[depth]], axis=-1, name="{}_concat_out".format(name))
+    X = layers.Concatenate([X, X_skip[depth]], axis=-1, name=f"{name}_concat_out")
 
     X = CONV_stack(
         X,
@@ -150,9 +147,9 @@ def RSU(
         dilation_rate=1,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_out".format(name),
+        name=f"{name}_out",
     )
-    X = add([X, X_skip[-1]], name="{}_out_add".format(name))
+    X = layers.Add([X, X_skip[-1]], name=f"{name}_out_add")
     return X
 
 
@@ -201,7 +198,7 @@ def RSU4F(
         dilation_rate=1,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_in".format(name),
+        name=f"{name}_in",
     )
     X_skip.append(X)
 
@@ -214,7 +211,7 @@ def RSU4F(
             dilation_rate=d,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_down_{}".format(name, i),
+            name=f"{name}_down_{i}",
         )
         X_skip.append(X)
 
@@ -222,7 +219,7 @@ def RSU4F(
     dilation_num = dilation_num[:-1][::-1]
 
     for i, d in enumerate(dilation_num[:-1]):
-        X = concatenate([X, X_skip[i]], axis=-1, name="{}_concat_{}".format(name, i))
+        X = layers.Concatenate([X, X_skip[i]], axis=-1, name=f"{name}_concat_{i}")
         X = CONV_stack(
             X,
             channel_in,
@@ -231,10 +228,10 @@ def RSU4F(
             dilation_rate=d,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_up_{}".format(name, i),
+            name=f"{name}_up_{i}",
         )
 
-    X = concatenate([X, X_skip[2]], axis=-1, name="{}_concat_out".format(name))
+    X = layers.Concatenate([X, X_skip[2]], axis=-1, name=f"{name}_concat_out")
     X = CONV_stack(
         X,
         channel_out,
@@ -243,10 +240,10 @@ def RSU4F(
         dilation_rate=1,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_out".format(name),
+        name=f"{name}_out",
     )
 
-    return add([X, X_skip[-1]], name="{}_out_add".format(name))
+    return layers.Add([X, X_skip[-1]], name=f"{name}_out_add")
 
 
 def u2net_2d_base(
@@ -328,7 +325,7 @@ def u2net_2d_base(
 
     X_skip = []
     X_out = []
-    OUT_stack = []
+    # OUT_stack = []
     depth_backup = []
     depth_ = len(filter_num_down)
 
@@ -343,7 +340,7 @@ def u2net_2d_base(
         batch_norm=batch_norm,
         pool=pool,
         unpool=unpool,
-        name="{}_in".format(name),
+        name=f"{name}_in",
     )
     X_skip.append(X)
 
@@ -357,7 +354,7 @@ def u2net_2d_base(
             pool,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_encode_{}".format(name, i),
+            name=f"{name}_encode_{i}",
         )
 
         X = RSU(
@@ -369,7 +366,7 @@ def u2net_2d_base(
             batch_norm=batch_norm,
             pool=pool,
             unpool=unpool,
-            name="{}_down_{}".format(name, i),
+            name=f"{name}_down_{i}",
         )
 
         depth_backup.append(depth_ - i)
@@ -384,7 +381,7 @@ def u2net_2d_base(
             pool,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_encode_4f_{}".format(name, i),
+            name=f"{name}_encode_4f_{i}",
         )
 
         X = RSU4F(
@@ -393,7 +390,7 @@ def u2net_2d_base(
             f,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_down_4f_{}".format(name, i),
+            name=f"{name}_down_4f_{i}",
         )
         X_skip.append(X)
 
@@ -418,11 +415,11 @@ def u2net_2d_base(
             unpool,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_decode_4f_{}".format(name, i),
+            name=f"{name}_decode_4f_{i}",
         )
 
-        X = concatenate(
-            [X, X_skip[tensor_count]], axis=-1, name="{}_concat_4f_{}".format(name, i)
+        X = layers.Concatenate(
+            [X, X_skip[tensor_count]], axis=-1, name=f"{name}_concat_4f_{i}"
         )
 
         X = RSU4F(
@@ -431,7 +428,7 @@ def u2net_2d_base(
             f,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_up_4f_{}".format(name, i),
+            name=f"{name}_up_4f_{i}",
         )
         X_out.append(X)
 
@@ -445,11 +442,11 @@ def u2net_2d_base(
             unpool,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_decode_{}".format(name, i),
+            name=f"{name}_decode_{i}",
         )
 
-        X = concatenate(
-            [X, X_skip[tensor_count]], axis=-1, name="{}_concat_{}".format(name, i)
+        X = layers.Concatenate(
+            [X, X_skip[tensor_count]], axis=-1, name=f"{name}_concat_{i}"
         )
 
         X = RSU(
@@ -461,7 +458,7 @@ def u2net_2d_base(
             batch_norm=batch_norm,
             pool=pool,
             unpool=unpool,
-            name="{}_up_{}".format(name, i),
+            name=f"{name}_up_{i}",
         )
         X_out.append(X)
 
@@ -573,52 +570,38 @@ def u2net_2d(
             "Automated hyper-parameter determination is applied with the following details:\n----------"
         )
         print(
-            "\tNumber of RSU output channels within downsampling blocks: filter_num_down = {}".format(
-                filter_num_down
-            )
+            f"\tNumber of RSU output channels within downsampling blocks: filter_num_down = {filter_num_down}"
         )
         print(
-            "\tNumber of RSU intermediate channels within downsampling blocks: filter_mid_num_down = {}".format(
-                filter_mid_num_down
-            )
+            f"\tNumber of RSU intermediate channels within downsampling blocks: filter_mid_num_down = {filter_mid_num_down}"
         )
         print(
-            "\tNumber of RSU output channels within upsampling blocks: filter_num_up = {}".format(
-                filter_num_up
-            )
+            f"\tNumber of RSU output channels within upsampling blocks: filter_num_up = {filter_num_up}"
         )
         print(
-            "\tNumber of RSU intermediate channels within upsampling blocks: filter_mid_num_up = {}".format(
-                filter_mid_num_up
-            )
+            f"\tNumber of RSU intermediate channels within upsampling blocks: filter_mid_num_up = {filter_mid_num_up}"
         )
         print(
-            "\tNumber of RSU-4F output channels within downsampling and bottom blocks: filter_4f_num = {}".format(
-                filter_4f_num
-            )
+            f"\tNumber of RSU-4F output channels within downsampling and bottom blocks: filter_4f_num = {filter_4f_num}"
         )
         print(
-            "\tNumber of RSU-4F intermediate channels within downsampling and bottom blocks: filter_4f_num = {}".format(
-                filter_4f_mid_num
-            )
+            f"\tNumber of RSU-4F intermediate channels within downsampling and bottom blocks: filter_4f_num = {filter_4f_mid_num}"
         )
         print(
             '----------\nExplicitly specifying keywords listed above if their "auto" settings do not satisfy your needs'
         )
 
     print(
-        "----------\nThe depth of u2net_2d = len(filter_num_down) + len(filter_4f_num) = {}".format(
-            len(filter_num_down) + len(filter_4f_num)
-        )
+        f"----------\nThe depth of u2net_2d = len(filter_num_down) + len(filter_4f_num) = {len(filter_num_down) + len(filter_4f_num)}"
     )
 
-    X_skip = []
+    # X_skip = []
     X_out = []
     OUT_stack = []
-    depth_backup = []
-    depth_ = len(filter_num_down)
+    # depth_backup = []
+    # depth_ = len(filter_num_down)
 
-    IN = Input(shape=input_size)
+    IN = layers.Input(shape=input_size)
 
     # base (before conv + activation + upsample)
     X_out = u2net_2d_base(
@@ -645,16 +628,16 @@ def u2net_2d(
         n_labels,
         kernel_size=3,
         activation=output_activation,
-        name="{}_output_sup0".format(name),
+        name=f"{name}_output_sup0",
     )
     OUT_stack.append(X)
 
     for i in range(1, L_out):
         pool_size = 2 ** (i)
 
-        X = Conv2D(
-            n_labels, 3, padding="same", name="{}_output_conv_{}".format(name, i)
-        )(X_out[i])
+        X = layers.Conv2D(n_labels, 3, padding="same", name=f"{name}_output_conv_{i}")(
+            X_out[i]
+        )
 
         X = decode_layer(
             X,
@@ -663,30 +646,28 @@ def u2net_2d(
             unpool,
             activation=None,
             batch_norm=False,
-            name="{}_sup{}".format(name, i),
+            name=f"{name}_sup{i}",
         )
 
         if output_activation:
             if output_activation == "Sigmoid":
-                X = Activation(
-                    "sigmoid", name="{}_output_sup{}_activation".format(name, i)
+                X = layers.Activation(
+                    "sigmoid", name=f"{name}_output_sup{i}_activation"
                 )(X)
             else:
                 activation_func = eval(output_activation)
-                X = activation_func(name="{}_output_sup{}_activation".format(name, i))(
-                    X
-                )
+                X = activation_func(name=f"{name}_output_sup{i}_activation")(X)
 
         OUT_stack.append(X)
 
-    D = concatenate(OUT_stack, axis=-1, name="{}_output_concat".format(name))
+    D = layers.Concatenate(OUT_stack, axis=-1, name=f"{name}_output_concat")
 
     D = CONV_output(
         D,
         n_labels,
         kernel_size=1,
         activation=output_activation,
-        name="{}_output_final".format(name),
+        name=f"{name}_output_final",
     )
 
     if deep_supervision:
@@ -695,21 +676,21 @@ def u2net_2d(
             '----------\ndeep_supervision = True\nnames of output tensors are listed as follows ("sup0" is the shallowest supervision layer;\n"final" is the final output layer):\n'
         )
 
-        if output_activation == None:
+        if output_activation is None:
             if unpool is False:
                 for i in range(L_out):
-                    print("\t{}_output_sup{}_trans_conv".format(name, i))
+                    print(f"\t{name}_output_sup{i}_trans_conv")
             else:
                 for i in range(L_out):
-                    print("\t{}_output_sup{}_unpool".format(name, i))
+                    print(f"\t{name}_output_sup{i}_unpool")
 
-            print("\t{}_output_final".format(name))
+            print(f"\t{name}_output_final")
 
         else:
             for i in range(L_out):
-                print("\t{}_output_sup{}_activation".format(name, i))
+                print(f"\t{name}_output_sup{i}_activation")
 
-            print("\t{}_output_final_activation".format(name))
+            print(f"\t{name}_output_final_activation")
 
         model = Model(
             [

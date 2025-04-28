@@ -58,7 +58,7 @@ def mb_conv(
         )(inputs)
         if use_norm:
             nn = layers.BatchNormalization(momentum=0.9, name=name + "expand_bn")(nn)
-        nn = layers.Activation(activation, name="{}_activation".format(name))(nn)
+        nn = layers.Activation(activation, name=f"{name}_activation")(nn)
     elif expansion > 1:
         nn = layers.Conv2D(
             int(input_channel * expansion),
@@ -69,7 +69,7 @@ def mb_conv(
         )(inputs)
         if use_norm:
             nn = layers.BatchNormalization(momentum=0.9, name=name + "expand_bn")(nn)
-        nn = layers.Activation(activation, name="{}_activation".format(name))(nn)
+        nn = layers.Activation(activation, name=f"{name}_activation")(nn)
     else:
         nn = inputs
 
@@ -79,7 +79,7 @@ def mb_conv(
         )(nn)
         if use_norm:
             nn = layers.BatchNormalization(momentum=0.9, name=name + "dw_bn")(nn)
-        nn = layers.Activation(activation, name="{}_dw_activation".format(name))(nn)
+        nn = layers.Activation(activation, name=f"{name}_dw_activation")(nn)
 
     pw_kernel_size = 3 if is_fused and expansion == 1 else 1
 
@@ -150,10 +150,8 @@ def lite_mhsa(
     key = ops.transpose(key, [0, 2, 3, 1])
     value = ops.transpose(value, [0, 2, 1, 3])
 
-    query = layers.Activation(activation, name="{}_query_activation".format(name))(
-        query
-    )
-    key = layers.Activation(activation, name="{}_key_activation".format(name))(key)
+    query = layers.Activation(activation, name=f"{name}_query_activation")(query)
+    key = layers.Activation(activation, name=f"{name}_key_activation")(key)
 
     query_key = query @ key
     scale = ops.sum(query_key, axis=-1, keepdims=True)
@@ -232,7 +230,7 @@ def EfficientViT_B(
     total_blocks = sum(num_blocks)
     global_block_id = 0
     for stack_id, (num_block, out_channel, block_type) in enumerate(
-        zip(num_blocks, out_channels, block_types)
+        zip(num_blocks, out_channels, block_types, strict=False)
     ):
         is_conv_block = True if block_type[0].lower() == "c" else False
         cur_expansions = (
@@ -250,7 +248,7 @@ def EfficientViT_B(
 
         cur_is_fused = is_fused[stack_id]
         for block_id in range(num_block):
-            name = "stack_{}_block_{}_".format(stack_id + 1, block_id + 1)
+            name = f"stack_{stack_id + 1}_block_{block_id + 1}_"
             stride = 2 if block_id == 0 else 1
             shortcut = False if block_id == 0 else True
             cur_expansion = (

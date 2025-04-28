@@ -1,12 +1,16 @@
 # ruff: noqa: F401, F403
 
-from __future__ import absolute_import
 
-from keras3_unets.layer_utils import *
+from keras import Model, layers, activations
+
 from keras3_unets.activations import GELU, Snake
-
-from keras.layers import Input
-from keras.models import Model
+from keras3_unets.layer_utils import (
+    CONV_output,
+    CONV_stack,
+    encode_layer,
+    decode_layer,
+    Res_CONV_stack,
+)
 
 
 def vnet_left(
@@ -44,7 +48,7 @@ def vnet_left(
         pool,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_encode".format(name),
+        name=f"{name}_encode",
     )
 
     if pool is not False:
@@ -56,7 +60,7 @@ def vnet_left(
             dilation_rate=1,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_pre_conv".format(name),
+            name=f"{name}_pre_conv",
         )
 
     X = Res_CONV_stack(
@@ -66,7 +70,7 @@ def vnet_left(
         res_num=res_num,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_res_conv".format(name),
+        name=f"{name}_res_conv",
     )
     return X
 
@@ -114,18 +118,18 @@ def vnet_right(
         unpool,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_decode".format(name),
+        name=f"{name}_decode",
     )
 
     X_skip = X
 
-    X = concatenate(
+    X = layers.Concatenate(
         [
             X,
         ]
         + X_list,
         axis=-1,
-        name="{}_concat".format(name),
+        name=f"{name}_concat",
     )
 
     X = Res_CONV_stack(
@@ -135,7 +139,7 @@ def vnet_right(
         res_num,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_res_conv".format(name),
+        name=f"{name}_res_conv",
     )
 
     return X
@@ -216,7 +220,7 @@ def vnet_2d_base(
         dilation_rate=1,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_input_conv".format(name),
+        name=f"{name}_input_conv",
     )
 
     X = Res_CONV_stack(
@@ -226,7 +230,7 @@ def vnet_2d_base(
         res_num=res_num_list[0],
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_down_0".format(name),
+        name=f"{name}_down_0",
     )
     X_skip.append(X)
 
@@ -239,7 +243,7 @@ def vnet_2d_base(
             activation=activation,
             pool=pool,
             batch_norm=batch_norm,
-            name="{}_down_{}".format(name, i + 1),
+            name=f"{name}_down_{i + 1}",
         )
 
         X_skip.append(X)
@@ -260,7 +264,7 @@ def vnet_2d_base(
             activation=activation,
             unpool=unpool,
             batch_norm=batch_norm,
-            name="{}_up_{}".format(name, i),
+            name=f"{name}_up_{i}",
         )
 
     return X
@@ -326,7 +330,7 @@ def vnet_2d(
     * All the 5-by-5 convolutional kernels are changed (and fixed) to 3-by-3.
     """
 
-    IN = Input(input_size)
+    IN = layers.Input(input_size)
     X = IN
     # base
     X = vnet_2d_base(
@@ -346,7 +350,7 @@ def vnet_2d(
         n_labels,
         kernel_size=1,
         activation=output_activation,
-        name="{}_output".format(name),
+        name=f"{name}_output",
     )
 
     # functional API model
@@ -357,7 +361,7 @@ def vnet_2d(
         outputs=[
             OUT,
         ],
-        name="{}_model".format(name),
+        name=f"{name}_model",
     )
 
     return model

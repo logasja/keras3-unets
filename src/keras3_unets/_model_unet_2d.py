@@ -1,14 +1,13 @@
 # ruff: noqa: F401, F403
 
-from __future__ import absolute_import
 
-from keras3_unets.layer_utils import *
+from keras import Input, Model, layers
+
+from keras3_unets._backbone_zoo import bach_norm_checker, backbone_zoo
 from keras3_unets.activations import GELU, Snake
-from keras3_unets._backbone_zoo import backbone_zoo
-from keras3_unets._backbone_zoo import bach_norm_checker
 from keras3_unets.efficientvit import EfficientViT_B
+from keras3_unets.layer_utils import CONV_output, CONV_stack, encode_layer, decode_layer
 
-from keras import Input, Model
 
 def UNET_left(
     X,
@@ -57,7 +56,7 @@ def UNET_left(
         pool,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_encode".format(name),
+        name=f"{name}_encode",
     )
 
     X = CONV_stack(
@@ -71,7 +70,7 @@ def UNET_left(
         l2_regularization=l2_regularization,
         l2_weight=l2_weight,
         batch_norm=batch_norm,
-        name="{}_conv".format(name),
+        name=f"{name}_conv",
     )
 
     return X
@@ -126,7 +125,7 @@ def UNET_right(
         unpool,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_decode".format(name),
+        name=f"{name}_decode",
     )
 
     # linear convolutional layers before concatenation
@@ -141,11 +140,11 @@ def UNET_right(
         l2_regularization=l2_regularization,
         l2_weight=l2_weight,
         batch_norm=batch_norm,
-        name="{}_conv_before_concat".format(name),
+        name=f"{name}_conv_before_concat",
     )
     if concat:
         # <--- *stacked convolutional can be applied here
-        X = concatenate(
+        X = layers.Concatenate(
             [
                 X,
             ]
@@ -240,8 +239,6 @@ def unet_2d_base(
     
     """
 
-    activation_func = eval(activation)
-
     X_skip = []
     depth_ = len(filter_num)
 
@@ -260,7 +257,7 @@ def unet_2d_base(
             l2_regularization=l2_regularization,
             l2_weight=l2_weight,
             batch_norm=batch_norm,
-            name="{}_down0".format(name),
+            name=f"{name}_down0",
         )
         X_skip.append(X)
 
@@ -277,7 +274,7 @@ def unet_2d_base(
                 l2_weight=l2_weight,
                 pool=pool,
                 batch_norm=batch_norm,
-                name="{}_down{}".format(name, i + 1),
+                name=f"{name}_down{i + 1}",
             )
             X_skip.append(X)
 
@@ -362,7 +359,7 @@ def unet_2d_base(
                     l2_weight=l2_weight,
                     pool=pool,
                     batch_norm=batch_norm,
-                    name="{}_down{}".format(name, i_real + 1),
+                    name=f"{name}_down{i_real + 1}",
                 )
                 X_skip.append(X)
 
@@ -393,7 +390,7 @@ def unet_2d_base(
             activation=activation,
             unpool=unpool,
             batch_norm=batch_norm,
-            name="{}_up{}".format(name, i),
+            name=f"{name}_up{i}",
         )
 
     # if tensors for concatenation is not enough
@@ -414,7 +411,7 @@ def unet_2d_base(
                 unpool=unpool,
                 batch_norm=batch_norm,
                 concat=False,
-                name="{}_up{}".format(name, i_real),
+                name=f"{name}_up{i_real}",
             )
     return X
 
@@ -492,8 +489,6 @@ def unet_2d(
         model: a keras model.
     
     """
-    activation_func = eval(activation)
-
     if backbone is not None:
         bach_norm_checker(backbone, batch_norm)
 
@@ -526,7 +521,7 @@ def unet_2d(
         n_labels,
         kernel_size=1,
         activation=output_activation,
-        name="{}_output".format(name),
+        name=f"{name}_output",
     )
 
     # functional API model
@@ -537,7 +532,7 @@ def unet_2d(
         outputs=[
             OUT,
         ],
-        name="{}_model".format(name),
+        name=f"{name}_model",
     )
 
     return model

@@ -1,16 +1,19 @@
 # ruff: noqa: F401, F403
-from __future__ import absolute_import
 
-from keras3_unets.layer_utils import *
-from keras3_unets.activations import GELU, Snake
+from keras import layers, Model, initializers
+
+from keras3_unets._backbone_zoo import bach_norm_checker, backbone_zoo
 from keras3_unets._model_unet_2d import UNET_left, UNET_right
-from keras3_unets._backbone_zoo import backbone_zoo, bach_norm_checker
-from keras3_unets.efficientvit import EfficientViT_B
-
+from keras3_unets.activations import GELU, Snake
 from keras3_unets.cbam import cbam_block
-
-from keras.layers import Input
-from keras.models import Model
+from keras3_unets.efficientvit import EfficientViT_B
+from keras3_unets.layer_utils import (
+    CONV_output,
+    CONV_stack,
+    encode_layer,
+    decode_layer,
+    attention_gate,
+)
 
 
 def UNET_att_right(
@@ -71,7 +74,7 @@ def UNET_att_right(
         unpool,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_decode".format(name),
+        name=f"{name}_decode",
     )
 
     # Here we can run X_left through CAM and SA blocks
@@ -83,11 +86,11 @@ def UNET_att_right(
         channel=att_channel,
         activation=atten_activation,
         attention=attention,
-        name="{}_att".format(name),
+        name=f"{name}_att",
     )
 
     # Tensor concatenation
-    H = concatenate([X, X_left], axis=-1, name="{}_concat".format(name))
+    H = layers.Concatenate([X, X_left], axis=-1, name=f"{name}_concat")
 
     # stacked linear convolutional layers after concatenation
     H = CONV_stack(
@@ -101,7 +104,7 @@ def UNET_att_right(
         l2_regularization=l2_regularization,
         l2_weight=l2_weight,
         batch_norm=batch_norm,
-        name="{}_conv_after_concat".format(name),
+        name=f"{name}_conv_after_concat",
     )
 
     return H
@@ -180,7 +183,7 @@ def att_unet_2d_base(
         X: the output tensor of the base.
     
     """
-    activation_func = eval(activation)
+    # activation_func = eval(activation)
 
     depth_ = len(filter_num)
     X_skip = []
@@ -199,7 +202,7 @@ def att_unet_2d_base(
             l2_regularization=l2_regularization,
             l2_weight=l2_weight,
             batch_norm=batch_norm,
-            name="{}_down0".format(name),
+            name=f"{name}_down0",
         )
         X_skip.append(X)
 
@@ -215,7 +218,7 @@ def att_unet_2d_base(
                 l2_regularization=l2_regularization,
                 l2_weight=l2_weight,
                 batch_norm=batch_norm,
-                name="{}_down{}".format(name, i + 1),
+                name=f"{name}_down{i + 1}",
             )
             X_skip.append(X)
 
@@ -303,7 +306,7 @@ def att_unet_2d_base(
                     l2_weight=l2_weight,
                     pool=pool,
                     batch_norm=batch_norm,
-                    name="{}_down{}".format(name, i_real + 1),
+                    name=f"{name}_down{i_real + 1}",
                 )
                 X_skip.append(X)
 
@@ -336,7 +339,7 @@ def att_unet_2d_base(
             l2_regularization=l2_regularization,
             l2_weight=l2_weight,
             batch_norm=batch_norm,
-            name="{}_up{}".format(name, i),
+            name=f"{name}_up{i}",
         )
 
     # if tensors for concatenation is not enough
@@ -357,7 +360,7 @@ def att_unet_2d_base(
                 l2_weight=l2_weight,
                 batch_norm=batch_norm,
                 concat=False,
-                name="{}_up{}".format(name, i_real),
+                name=f"{name}_up{i_real}",
             )
     return X
 
@@ -443,12 +446,12 @@ def att_unet_2d(
     """
 
     # one of the ReLU, LeakyReLU, PReLU, ELU
-    activation_func = eval(activation)
+    # activation_func = eval(activation)
 
     if backbone is not None:
         bach_norm_checker(backbone, batch_norm)
 
-    IN = Input(input_size)
+    IN = layers.Input(input_size)
 
     # base
     X = att_unet_2d_base(
@@ -479,8 +482,8 @@ def att_unet_2d(
         n_labels,
         kernel_size=1,
         activation=output_activation,
-        bias_initializer=all_zero_init,
-        name="{}_output".format(name),
+        bias_initializer=initializers.zeros,
+        name=f"{name}_output",
     )
 
     # functional API model
@@ -491,7 +494,7 @@ def att_unet_2d(
         outputs=[
             OUT,
         ],
-        name="{}_model".format(name),
+        name=f"{name}_model",
     )
 
     return model

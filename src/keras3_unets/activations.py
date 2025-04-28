@@ -1,6 +1,7 @@
 # ruff: noqa: F401, F403
 
-from keras import ops, backend as K, Layer
+from keras import Layer, ops
+from keras import backend as K
 
 
 def gelu_(X):

@@ -1,16 +1,15 @@
 # ruff: noqa: F401, F403
 
-from __future__ import absolute_import
 
-from keras3_unets.layer_utils import *
-from keras3_unets.activations import GELU, Snake
-from keras3_unets._backbone_zoo import backbone_zoo, bach_norm_checker
-from keras3_unets._model_unet_2d import UNET_left, UNET_right
+import warnings
 
 from keras.layers import Input
 from keras.models import Model
 
-import warnings
+from keras3_unets._backbone_zoo import bach_norm_checker, backbone_zoo
+from keras3_unets._model_unet_2d import UNET_left, UNET_right
+from keras3_unets.activations import GELU, Snake
+from keras3_unets.layer_utils import CONV_output, CONV_stack, decode_layer
 
 
 def unet_plus_2d_base(
@@ -84,8 +83,6 @@ def unet_plus_2d_base(
     
     """
 
-    activation_func = eval(activation)
-
     depth_ = len(filter_num)
     # allocate nested lists for collecting output tensors
     X_nest_skip = [[] for _ in range(depth_)]
@@ -101,7 +98,7 @@ def unet_plus_2d_base(
             stack_num=stack_num_down,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_down0".format(name),
+            name=f"{name}_down0",
         )
         X_nest_skip[0].append(X)
         for i, f in enumerate(filter_num[1:]):
@@ -112,7 +109,7 @@ def unet_plus_2d_base(
                 activation=activation,
                 pool=pool,
                 batch_norm=batch_norm,
-                name="{}_down{}".format(name, i + 1),
+                name=f"{name}_down{i + 1}",
             )
             X_nest_skip[0].append(X)
 
@@ -171,7 +168,7 @@ def unet_plus_2d_base(
                     activation=activation,
                     pool=pool,
                     batch_norm=batch_norm,
-                    name="{}_down{}".format(name, i_real + 1),
+                    name=f"{name}_down{i_real + 1}",
                 )
                 X_nest_skip[0].append(X)
 
@@ -202,7 +199,7 @@ def unet_plus_2d_base(
                     unpool=unpool,
                     batch_norm=batch_norm,
                     concat=False,
-                    name="{}_up{}_from{}".format(name, nest_lev - 1, i - 1),
+                    name=f"{name}_up{nest_lev - 1}_from{i - 1}",
                 )
             )
 
@@ -220,7 +217,7 @@ def unet_plus_2d_base(
                     unpool=unpool,
                     batch_norm=batch_norm,
                     concat=False,
-                    name="{}_up{}_from{}".format(name, nest_lev - 1, j_real - 1),
+                    name=f"{name}_up{nest_lev - 1}_from{j_real - 1}",
                 )
                 X_nest_skip[nest_lev].append(X)
 
@@ -351,11 +348,11 @@ def unet_plus_2d(
         # no backbone or VGG backbones
         # depth_ > 2 is expected (a least two downsampling blocks)
         if (backbone is None) or "VGG" in backbone:
-            for i in range(0, depth_ - 1):
+            for i in range(depth_ - 1):
                 if output_activation is None:
-                    print("\t{}_output_sup{}".format(name, i))
+                    print(f"\t{name}_output_sup{i}")
                 else:
-                    print("\t{}_output_sup{}_activation".format(name, i))
+                    print(f"\t{name}_output_sup{i}_activation")
 
                 OUT_list.append(
                     CONV_output(
@@ -363,16 +360,16 @@ def unet_plus_2d(
                         n_labels,
                         kernel_size=1,
                         activation=output_activation,
-                        name="{}_output_sup{}".format(name, i),
+                        name=f"{name}_output_sup{i}",
                     )
                 )
         # other backbones
         else:
             for i in range(1, depth_ - 1):
                 if output_activation is None:
-                    print("\t{}_output_sup{}".format(name, i - 1))
+                    print(f"\t{name}_output_sup{i - 1}")
                 else:
-                    print("\t{}_output_sup{}_activation".format(name, i - 1))
+                    print(f"\t{name}_output_sup{i - 1}_activation")
 
                 # an extra upsampling for creating full resolution feature maps
                 X = decode_layer(
@@ -382,7 +379,7 @@ def unet_plus_2d(
                     unpool,
                     activation=activation,
                     batch_norm=batch_norm,
-                    name="{}_sup{}_up".format(name, i - 1),
+                    name=f"{name}_sup{i - 1}_up",
                 )
 
                 X = CONV_output(
@@ -390,14 +387,14 @@ def unet_plus_2d(
                     n_labels,
                     kernel_size=1,
                     activation=output_activation,
-                    name="{}_output_sup{}".format(name, i - 1),
+                    name=f"{name}_output_sup{i - 1}",
                 )
                 OUT_list.append(X)
 
         if output_activation is None:
-            print("\t{}_output_final".format(name))
+            print(f"\t{name}_output_final")
         else:
-            print("\t{}_output_final_activation".format(name))
+            print(f"\t{name}_output_final_activation")
 
         OUT_list.append(
             CONV_output(
@@ -405,7 +402,7 @@ def unet_plus_2d(
                 n_labels,
                 kernel_size=1,
                 activation=output_activation,
-                name="{}_output_final".format(name),
+                name=f"{name}_output_final",
             )
         )
 
@@ -415,7 +412,7 @@ def unet_plus_2d(
             n_labels,
             kernel_size=1,
             activation=output_activation,
-            name="{}_output".format(name),
+            name=f"{name}_output",
         )
         OUT_list = [
             OUT,
@@ -427,7 +424,7 @@ def unet_plus_2d(
             IN,
         ],
         outputs=OUT_list,
-        name="{}_model".format(name),
+        name=f"{name}_model",
     )
 
     return model

@@ -1,11 +1,15 @@
 # ruff: noqa: F401, F403
-from __future__ import absolute_import
 
-from keras3_unets.layer_utils import *
+from keras import layers, ops, Model
+
 from keras3_unets.activations import GELU, Snake
-
-from keras.layers import Input
-from keras.models import Model
+from keras3_unets.layer_utils import (
+    CONV_output,
+    CONV_stack,
+    decode_layer,
+    encode_layer,
+    ASPP_conv,
+)
 
 
 def ResUNET_a_block(
@@ -55,12 +59,12 @@ def ResUNET_a_block(
                 dilation_rate=d,
                 activation=activation,
                 batch_norm=batch_norm,
-                name="{}_stack{}".format(name, i),
+                name=f"{name}_stack{i}",
             )
         )
 
     if len(X_res) > 1:
-        return add(X_res)
+        return ops.add(X_res)
 
     else:
         return X_res[0]
@@ -116,11 +120,11 @@ def ResUNET_a_right(
         unpool,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_decode".format(name),
+        name=f"{name}_decode",
     )
 
     # <--- *stacked convolutional can be applied here
-    X = concatenate(
+    X = layers.Concatenate(
         [
             X,
         ]
@@ -137,7 +141,7 @@ def ResUNET_a_right(
         dilation_num=dilation_num,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_resblock".format(name),
+        name=f"{name}_resblock",
     )
 
     return X
@@ -201,7 +205,7 @@ def resunet_a_2d_base(
 
     activation_func = eval(activation)
 
-    depth_ = len(filter_num)
+    # depth_ = len(filter_num)
     X_skip = []
 
     # ----- #
@@ -217,16 +221,16 @@ def resunet_a_2d_base(
     X = input_tensor
 
     # input mapping with 1-by-1 conv
-    X = Conv2D(
+    X = layers.Conv2D(
         filter_num[0],
         1,
         1,
         dilation_rate=1,
         padding="same",
         use_bias=True,
-        name="{}_input_mapping".format(name),
+        name=f"{name}_input_mapping",
     )(X)
-    X = activation_func(name="{}_input_activation".format(name))(X)
+    X = activation_func(name=f"{name}_input_activation")(X)
     X_skip.append(X)
     # ----- #
 
@@ -237,7 +241,7 @@ def resunet_a_2d_base(
         dilation_num=dilation_[0],
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_res0".format(name),
+        name=f"{name}_res0",
     )
     X_skip.append(X)
 
@@ -251,7 +255,7 @@ def resunet_a_2d_base(
             pool,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_down{}".format(name, i),
+            name=f"{name}_down{i}",
         )
         X = ResUNET_a_block(
             X,
@@ -260,7 +264,7 @@ def resunet_a_2d_base(
             dilation_num=dilation_[ind_],
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_resblock_{}".format(name, ind_),
+            name=f"{name}_resblock_{ind_}",
         )
         X_skip.append(X)
 
@@ -269,7 +273,7 @@ def resunet_a_2d_base(
         aspp_num_down,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_aspp_bottom".format(name),
+        name=f"{name}_aspp_bottom",
     )
 
     X_skip = X_skip[:-1][::-1]
@@ -287,17 +291,17 @@ def resunet_a_2d_base(
             dilation_num=dilation_[i],
             unpool=unpool,
             batch_norm=batch_norm,
-            name="{}_up{}".format(name, i),
+            name=f"{name}_up{i}",
         )
 
-    X = concatenate([X_skip[-1], X], name="{}_concat_out".format(name))
+    X = layers.Concatenate([X_skip[-1], X], name=f"{name}_concat_out")
 
     X = ASPP_conv(
         X,
         aspp_num_up,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_aspp_out".format(name),
+        name=f"{name}_aspp_out",
     )
 
     return X
@@ -364,10 +368,9 @@ def resunet_a_2d(
     
     """
 
-    activation_func = eval(activation)
     depth_ = len(filter_num)
 
-    X_skip = []
+    # X_skip = []
 
     # input_size cannot have None
     if input_size[0] is None or input_size[1] is None:
@@ -375,7 +378,7 @@ def resunet_a_2d(
 
     # ----- #
     if isinstance(dilation_num[0], int):
-        print("Received dilation rates: {}".format(dilation_num))
+        print(f"Received dilation rates: {dilation_num}")
 
         deep_ = (depth_ - 2) // 2
         dilation_ = [[] for _ in range(depth_)]
@@ -394,13 +397,13 @@ def resunet_a_2d(
                 dilation_[i] += [
                     1,
                 ]
-            print("\tdepth-{}, dilation_rate = {}".format(i, dilation_[i]))
+            print(f"\tdepth-{i}, dilation_rate = {dilation_[i]}")
 
     else:
         dilation_ = dilation_num
     # ----- #
 
-    IN = Input(input_size)
+    IN = layers.Input(input_size)
 
     # base
     X = resunet_a_2d_base(
@@ -421,7 +424,7 @@ def resunet_a_2d(
         n_labels,
         kernel_size=1,
         activation=output_activation,
-        name="{}_output".format(name),
+        name=f"{name}_output",
     )
 
     model = Model(
@@ -429,7 +432,7 @@ def resunet_a_2d(
         [
             OUT,
         ],
-        name="{}_model".format(name),
+        name=f"{name}_model",
     )
 
     return model

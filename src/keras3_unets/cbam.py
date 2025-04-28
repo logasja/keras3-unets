@@ -1,6 +1,6 @@
 # https://www.kaggle.com/code/ipythonx/keras-ranzcr-multi-attention-efficientnet-tpu/comments?scriptVersionId=88108908
 # Apache license
-from keras import ops, layers, activations, initializers, backend
+from keras import activations, backend, initializers, layers, ops
 
 
 class SpatialAttentionModule(layers.Layer):
@@ -101,7 +101,7 @@ class AttentionWeightedAverage2D(layers.Layer):
         assert len(input_shape) == 4
         self.W = self.add_weight(
             shape=(input_shape[3], 1),
-            name="{}_W".format(self.name),
+            name=f"{self.name}_W",
             initializer=self.init,
         )
         self._trainable_weights = [self.W]

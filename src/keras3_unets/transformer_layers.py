@@ -1,11 +1,9 @@
 # ruff: noqa: F401
-from __future__ import absolute_import
 
 import numpy as np
-
-from keras import ops, random, initializers, backend as K, activations
-
-from keras.layers import Conv2D, Dense, Embedding, Dropout, LayerNormalization, Layer
+from keras import activations, initializers, ops, random
+from keras import backend as K
+from keras.layers import Conv2D, Dense, Dropout, Embedding, Layer, LayerNormalization
 
 
 class patch_extract(Layer):
@@ -150,7 +148,7 @@ class patch_merging(Layer):
 
         # A linear transform that doubles the channels
         self.linear_trans = Dense(
-            2 * embed_dim, use_bias=False, name="{}_linear_trans".format(name)
+            2 * embed_dim, use_bias=False, name=f"{name}_linear_trans"
         )
 
     def get_config(self):
@@ -174,7 +172,7 @@ class patch_merging(Layer):
 
         assert L == H * W, "input feature has wrong size"
         assert H % 2 == 0 and W % 2 == 0, (
-            "{}-by-{} patches received, they are not even.".format(H, W)
+            f"{H}-by-{W} patches received, they are not even."
         )
 
         # Convert the patch sequence to aligned patches
@@ -234,14 +232,14 @@ class patch_expanding(Layer):
             upsample_rate * embed_dim,
             kernel_size=1,
             use_bias=False,
-            name="{}_linear_trans1".format(name),
+            name=f"{name}_linear_trans1",
         )
         #
         self.linear_trans2 = Conv2D(
             upsample_rate * embed_dim,
             kernel_size=1,
             use_bias=False,
-            name="{}_linear_trans1".format(name),
+            name=f"{name}_linear_trans1",
         )
         self.prefix = name
 
@@ -280,7 +278,7 @@ class patch_expanding(Layer):
                 x,
                 self.upsample_rate,
                 data_format="NHWC",
-                name="{}_d_to_space".format(self.prefix),
+                name=f"{self.prefix}_d_to_space",
             )
         elif K.backend() == "torch":
             from torch.nn.functional import pixel_shuffle
@@ -380,8 +378,8 @@ class Mlp(Layer):
         self.drop = drop
 
         # MLP layers
-        self.fc1 = Dense(filter_num[0], name="{}_mlp_0".format(name))
-        self.fc2 = Dense(filter_num[1], name="{}_mlp_1".format(name))
+        self.fc1 = Dense(filter_num[0], name=f"{name}_mlp_0")
+        self.fc2 = Dense(filter_num[1], name=f"{name}_mlp_1")
 
         # Dropout layer
         self.drop = Dropout(drop)
@@ -444,11 +442,9 @@ class WindowAttention(Layer):
         self.prefix = name
 
         # Layers
-        self.qkv = Dense(
-            dim * 3, use_bias=qkv_bias, name="{}_attn_qkv".format(self.prefix)
-        )
+        self.qkv = Dense(dim * 3, use_bias=qkv_bias, name=f"{self.prefix}_attn_qkv")
         self.attn_drop = Dropout(attn_drop)
-        self.proj = Dense(dim, name="{}_attn_proj".format(self.prefix))
+        self.proj = Dense(dim, name=f"{self.prefix}_attn_proj")
         self.proj_drop = Dropout(proj_drop)
 
     def get_config(self):
@@ -480,7 +476,7 @@ class WindowAttention(Layer):
             shape=(num_window_elements, self.num_heads),
             initializer=initializers.Zeros(),
             trainable=True,
-            name="{}_attn_pos".format(self.prefix),
+            name=f"{self.prefix}_attn_pos",
         )
 
         # Indices of relative positions
@@ -500,7 +496,7 @@ class WindowAttention(Layer):
             shape=relative_position_index.shape,
             initializer=initializers.Constant(relative_position_index),
             trainable=False,
-            name="{}_attn_pos_ind".format(self.prefix),
+            name=f"{self.prefix}_attn_pos_ind",
         )
 
         self.built = True
@@ -605,9 +601,7 @@ class SwinTransformerBlock(Layer):
         self.prefix = name
 
         # Layers
-        self.norm1 = LayerNormalization(
-            epsilon=1e-5, name="{}_norm1".format(self.prefix)
-        )
+        self.norm1 = LayerNormalization(epsilon=1e-5, name=f"{self.prefix}_norm1")
         self.attn = WindowAttention(
             dim,
             window_size=(self.window_size, self.window_size),
@@ -619,13 +613,11 @@ class SwinTransformerBlock(Layer):
             name=self.prefix,
         )
         self.drop_path = drop_path(drop_path_prob)
-        self.norm2 = LayerNormalization(
-            epsilon=1e-5, name="{}_norm2".format(self.prefix)
-        )
+        self.norm2 = LayerNormalization(epsilon=1e-5, name=f"{self.prefix}_norm2")
         self.mlp = Mlp([num_mlp, dim], drop=mlp_drop, name=self.prefix)
 
         # Assertions
-        assert 0 <= self.shift_size, "shift_size >= 0 is required"
+        assert self.shift_size >= 0, "shift_size >= 0 is required"
         assert self.shift_size < self.window_size, (
             "shift_size < window_size is required"
         )
@@ -700,7 +692,7 @@ class SwinTransformerBlock(Layer):
                 shape=attn_mask.shape,
                 initializer=initializers.Constant(attn_mask),
                 trainable=False,
-                name="{}_attn_mask".format(self.prefix),
+                name=f"{self.prefix}_attn_mask",
             )
         else:
             self.attn_mask = None

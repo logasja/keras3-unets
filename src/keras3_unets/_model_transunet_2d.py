@@ -1,15 +1,13 @@
 # ruff: noqa: F401, F403
 
-from __future__ import absolute_import
 
-from keras3_unets.layer_utils import *
-from keras3_unets.activations import GELU, Snake
+from keras import Input, Layer, Model, ops, layers
+
+from keras3_unets._backbone_zoo import bach_norm_checker, backbone_zoo
 from keras3_unets._model_unet_2d import UNET_left, UNET_right
-from keras3_unets.transformer_layers import patch_extract, patch_embedding
-from keras3_unets._backbone_zoo import backbone_zoo, bach_norm_checker
-
-from keras import ops, Input, Model, Layer
-from keras.layers import MultiHeadAttention, LayerNormalization, Dense, Embedding, Conv2D
+from keras3_unets.activations import GELU, Snake
+from keras3_unets.layer_utils import CONV_output, CONV_stack
+from keras3_unets.transformer_layers import patch_embedding, patch_extract
 
 
 def ViT_MLP(X, filter_num, activation="GELU", name="MLP"):
@@ -38,8 +36,8 @@ def ViT_MLP(X, filter_num, activation="GELU", name="MLP"):
     activation_func = eval(activation)
 
     for i, f in enumerate(filter_num):
-        X = Dense(f, name="{}_dense_{}".format(name, i))(X)
-        X = activation_func(name="{}_activation_{}".format(name, i))(X)
+        X = layers.Dense(f, name=f"{name}_dense_{i}")(X)
+        X = activation_func(name=f"{name}_activation_{i}")(X)
 
     return X
 
@@ -74,19 +72,19 @@ def ViT_block(V, num_heads, key_dim, filter_num_MLP, activation="GELU", name="Vi
     """
     # Multiheaded self-attention (MSA)
     V_atten = V  # <--- skip
-    V_atten = LayerNormalization(name="{}_layer_norm_1".format(name))(V_atten)
-    V_atten = MultiHeadAttention(
-        num_heads=num_heads, key_dim=key_dim, name="{}_atten".format(name)
+    V_atten = layers.LayerNormalization(name=f"{name}_layer_norm_1")(V_atten)
+    V_atten = layers.MultiHeadAttention(
+        num_heads=num_heads, key_dim=key_dim, name=f"{name}_atten"
     )(V_atten, V_atten)
     # Skip connection
-    V_add = add([V_atten, V], name="{}_skip_1".format(name))  # <--- skip
+    V_add = layers.Add([V_atten, V], name=f"{name}_skip_1")  # <--- skip
 
     # MLP
     V_MLP = V_add  # <--- skip
-    V_MLP = LayerNormalization(name="{}_layer_norm_2".format(name))(V_MLP)
-    V_MLP = ViT_MLP(V_MLP, filter_num_MLP, activation, name="{}_mlp".format(name))
+    V_MLP = layers.LayerNormalization(name=f"{name}_layer_norm_2")(V_MLP)
+    V_MLP = ViT_MLP(V_MLP, filter_num_MLP, activation, name=f"{name}_mlp")
     # Skip connection
-    V_out = add([V_MLP, V_add], name="{}_skip_2".format(name))  # <--- skip
+    V_out = layers.Add([V_MLP, V_add], name=f"{name}_skip_2")  # <--- skip
 
     return V_out
 
@@ -162,8 +160,6 @@ def transunet_2d_base(
         X: output tensor.
     
     """
-    activation_func = eval(activation)
-
     X_skip = []
     depth_ = len(filter_num)
 
@@ -200,7 +196,7 @@ def transunet_2d_base(
             stack_num=stack_num_down,
             activation=activation,
             batch_norm=batch_norm,
-            name="{}_down0".format(name),
+            name=f"{name}_down0",
         )
         X_skip.append(X)
 
@@ -213,7 +209,7 @@ def transunet_2d_base(
                 activation=activation,
                 pool=pool,
                 batch_norm=batch_norm,
-                name="{}_down{}".format(name, i + 1),
+                name=f"{name}_down{i + 1}",
             )
             X_skip.append(X)
 
@@ -272,7 +268,7 @@ def transunet_2d_base(
                     activation=activation,
                     pool=pool,
                     batch_norm=batch_norm,
-                    name="{}_down{}".format(name, i_real + 1),
+                    name=f"{name}_down{i_real + 1}",
                 )
                 X_skip.append(X)
 
@@ -281,12 +277,12 @@ def transunet_2d_base(
     X_skip = X_skip[:-1]
 
     # 1-by-1 linear transformation before entering ViT blocks
-    X = Conv2D(
+    X = layers.Conv2D(
         filter_num[-1],
         1,
         padding="valid",
         use_bias=False,
-        name="{}_conv_trans_before".format(name),
+        name=f"{name}_conv_trans_before",
     )(X)
 
     X = patch_extract((patch_size, patch_size))(X)
@@ -300,19 +296,19 @@ def transunet_2d_base(
             key_dim,
             filter_num_MLP,
             activation=mlp_activation,
-            name="{}_ViT_{}".format(name, i),
+            name=f"{name}_ViT_{i}",
         )
 
     # reshape patches to feature maps
     X = ops.reshape(X, (-1, encode_size, encode_size, embed_dim))
 
     # 1-by-1 linear transformation to adjust the number of channels
-    X = Conv2D(
+    X = layers.Conv2D(
         filter_num[-1],
         1,
         padding="valid",
         use_bias=False,
-        name="{}_conv_trans_after".format(name),
+        name=f"{name}_conv_trans_after",
     )(X)
 
     X_skip.append(X)
@@ -342,7 +338,7 @@ def transunet_2d_base(
             activation=activation,
             unpool=unpool,
             batch_norm=batch_norm,
-            name="{}_up{}".format(name, i),
+            name=f"{name}_up{i}",
         )
 
     # if tensors for concatenation is not enough
@@ -359,7 +355,7 @@ def transunet_2d_base(
                 unpool=unpool,
                 batch_norm=batch_norm,
                 concat=False,
-                name="{}_up{}".format(name, i_real),
+                name=f"{name}_up{i_real}",
             )
 
     return X
@@ -443,9 +439,6 @@ def transunet_2d(
         model: a keras model.
     
     """
-
-    activation_func = eval(activation)
-
     IN = Input(input_size)
 
     # base
@@ -476,7 +469,7 @@ def transunet_2d(
         n_labels,
         kernel_size=1,
         activation=output_activation,
-        name="{}_output".format(name),
+        name=f"{name}_output",
     )
 
     # functional API model
@@ -487,7 +480,7 @@ def transunet_2d(
         outputs=[
             OUT,
         ],
-        name="{}_model".format(name),
+        name=f"{name}_model",
     )
 
     return model

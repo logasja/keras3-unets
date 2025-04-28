@@ -1,12 +1,11 @@
 # ruff: noqa: F401, F403
-from __future__ import absolute_import
+
+import warnings
 
 from keras.applications import *
 from keras.models import Model
 
 from keras3_unets.utils import freeze_model
-
-import warnings
 
 layer_cadidates = {
     "VGG16": (
@@ -136,13 +135,9 @@ def bach_norm_checker(backbone_name, batch_norm):
 
     if batch_norm_backbone != batch_norm:
         if batch_norm_backbone:
-            param_mismatch = "\n\nBackbone {} uses batch norm, but other layers received batch_norm={}".format(
-                backbone_name, batch_norm
-            )
+            param_mismatch = f"\n\nBackbone {backbone_name} uses batch norm, but other layers received batch_norm={batch_norm}"
         else:
-            param_mismatch = "\n\nBackbone {} does not use batch norm, but other layers received batch_norm={}".format(
-                backbone_name, batch_norm
-            )
+            param_mismatch = f"\n\nBackbone {backbone_name} does not use batch norm, but other layers received batch_norm={batch_norm}"
 
         warnings.warn(param_mismatch)
 
@@ -205,7 +200,7 @@ def backbone_zoo(
             input_tensor,
         ],
         outputs=X_skip,
-        name="{}_backbone".format(backbone_name),
+        name=f"{backbone_name}_backbone",
     )
 
     if freeze_backbone:

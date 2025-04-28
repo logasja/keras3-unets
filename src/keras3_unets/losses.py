@@ -1,8 +1,8 @@
-from __future__ import absolute_import
-
 from typing import Literal
+
 import numpy as np
-from keras import backend as K, ops, KerasTensor
+from keras import KerasTensor, ops
+from keras import backend as K
 
 
 def _crps(
@@ -305,7 +305,7 @@ def ms_ssim(y_true: KerasTensor, y_pred: KerasTensor, **kwargs) -> KerasTensor:
 def iou_box_coef(
     y_true: KerasTensor,
     y_pred: KerasTensor,
-    mode: Literal["giou"] | Literal["iou"] = "giou",
+    mode: Literal["giou", "iou"] = "giou",
     dtype: str = K.floatx(),
 ) -> KerasTensor:
     """
@@ -387,7 +387,7 @@ def iou_box_coef(
 def iou_box(
     y_true: KerasTensor,
     y_pred: KerasTensor,
-    mode: Literal["giou"] | Literal["iou"] = "giou",
+    mode: Literal["giou", "iou"] = "giou",
     dtype: str = K.floatx(),
 ) -> KerasTensor:
     """

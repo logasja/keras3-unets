@@ -1,22 +1,32 @@
 # ruff: noqa: F401
 
-from __future__ import absolute_import
+
+import numpy as np
+from keras import ops, regularizers
+from keras.layers import (
+    ELU,
+    Activation,
+    AveragePooling2D,
+    BatchNormalization,
+    Conv2D,
+    Conv2DTranspose,
+    DepthwiseConv2D,
+    Dropout,
+    GlobalAveragePooling2D,
+    Lambda,
+    LeakyReLU,
+    MaxPooling2D,
+    PReLU,
+    ReLU,
+    Softmax,
+    SpatialDropout2D,
+    UpSampling2D,
+    add,
+    concatenate,
+    multiply,
+)
 
 from keras3_unets.activations import GELU, Snake
-import numpy as np
-from keras import ops
-from keras.layers import (
-    MaxPooling2D,
-    AveragePooling2D,
-    UpSampling2D,
-    Conv2DTranspose,
-    GlobalAveragePooling2D,
-)
-from keras.layers import Conv2D, DepthwiseConv2D, Lambda
-from keras.layers import BatchNormalization, Activation, concatenate, multiply, add
-from keras.layers import Dropout, SpatialDropout2D
-from keras import regularizers
-from keras.layers import ReLU, LeakyReLU, PReLU, ELU, Softmax
 
 
 def decode_layer(
@@ -56,6 +66,7 @@ def decode_layer(
     * The defaut: `kernel_size=3`, is suitable for `pool_size=2`.
 
     """
+    bias_flag = True
     # parsers
     if unpool is False:
         # trans conv configurations
@@ -78,7 +89,7 @@ def decode_layer(
         X = UpSampling2D(
             size=(pool_size, pool_size),
             interpolation=interp,
-            name="{}_unpool".format(name),
+            name=f"{name}_unpool",
         )(X)
     else:
         if kernel_size == "auto":
@@ -89,17 +100,18 @@ def decode_layer(
             kernel_size,
             strides=(pool_size, pool_size),
             padding="same",
-            name="{}_trans_conv".format(name),
+            name=f"{name}_trans_conv",
+            use_bias=bias_flag,
         )(X)
 
         # batch normalization
         if batch_norm:
-            X = BatchNormalization(axis=3, name="{}_bn".format(name))(X)
+            X = BatchNormalization(axis=3, name=f"{name}_bn")(X)
 
         # activation
         if activation is not None:
             activation_func = eval(activation)
-            X = activation_func(name="{}_activation".format(name))(X)
+            X = activation_func(name=f"{name}_activation")(X)
 
     return X
 
@@ -153,14 +165,12 @@ def encode_layer(
         bias_flag = not batch_norm
 
     if pool == "max":
-        X = MaxPooling2D(
-            pool_size=(pool_size, pool_size), name="{}_maxpool".format(name)
-        )(X)
+        X = MaxPooling2D(pool_size=(pool_size, pool_size), name=f"{name}_maxpool")(X)
 
     elif pool == "ave":
-        X = AveragePooling2D(
-            pool_size=(pool_size, pool_size), name="{}_avepool".format(name)
-        )(X)
+        X = AveragePooling2D(pool_size=(pool_size, pool_size), name=f"{name}_avepool")(
+            X
+        )
 
     else:
         if kernel_size == "auto":
@@ -173,17 +183,17 @@ def encode_layer(
             strides=(pool_size, pool_size),
             padding="valid",
             use_bias=bias_flag,
-            name="{}_stride_conv".format(name),
+            name=f"{name}_stride_conv",
         )(X)
 
         # batch normalization
         if batch_norm:
-            X = BatchNormalization(axis=3, name="{}_bn".format(name))(X)
+            X = BatchNormalization(axis=3, name=f"{name}_bn")(X)
 
         # activation
         if activation is not None:
             activation_func = eval(activation)
-            X = activation_func(name="{}_activation".format(name))(X)
+            X = activation_func(name=f"{name}_activation")(X)
 
     return X
 
@@ -216,26 +226,26 @@ def attention_gate(X, g, channel, activation="ReLU", attention="add", name="att"
     attention_func = eval(attention)
 
     # mapping the input tensor to the intermediate channel
-    theta_att = Conv2D(channel, 1, use_bias=True, name="{}_theta_x".format(name))(X)
+    theta_att = Conv2D(channel, 1, use_bias=True, name=f"{name}_theta_x")(X)
 
     # mapping the gate tensor
-    phi_g = Conv2D(channel, 1, use_bias=True, name="{}_phi_g".format(name))(g)
+    phi_g = Conv2D(channel, 1, use_bias=True, name=f"{name}_phi_g")(g)
 
     # ----- attention learning ----- #
-    query = attention_func([theta_att, phi_g], name="{}_add".format(name))
+    query = attention_func([theta_att, phi_g], name=f"{name}_add")
 
     # nonlinear activation
-    f = activation_func(name="{}_activation".format(name))(query)
+    f = activation_func(name=f"{name}_activation")(query)
 
     # linear transformation
-    psi_f = Conv2D(1, 1, use_bias=True, name="{}_psi_f".format(name))(f)
+    psi_f = Conv2D(1, 1, use_bias=True, name=f"{name}_psi_f")(f)
     # ------------------------------ #
 
     # sigmoid activation as attention coefficients
-    coef_att = Activation("sigmoid", name="{}_sigmoid".format(name))(psi_f)
+    coef_att = Activation("sigmoid", name=f"{name}_sigmoid")(psi_f)
 
     # multiplicative attention masking
-    X_att = multiply([X, coef_att], name="{}_masking".format(name))
+    X_att = multiply([X, coef_att], name=f"{name}_masking")
 
     return X_att
 
@@ -294,7 +304,7 @@ def CONV_stack(
                 use_bias=bias_flag,
                 dilation_rate=dilation_rate,
                 kernel_regularizer=regularizers.L2(l2_weight),
-                name="{}_{}".format(name, i),
+                name=f"{name}_{i}",
             )(X)
         else:
             X = Conv2D(
@@ -303,24 +313,22 @@ def CONV_stack(
                 padding="same",
                 use_bias=bias_flag,
                 dilation_rate=dilation_rate,
-                name="{}_{}".format(name, i),
+                name=f"{name}_{i}",
             )(X)
 
         # batch normalization
         if batch_norm:
-            X = BatchNormalization(axis=3, name="{}_{}_bn".format(name, i))(X)
+            X = BatchNormalization(axis=3, name=f"{name}_{i}_bn")(X)
 
         # activation
         activation_func = eval(activation)
-        X = activation_func(name="{}_{}_activation".format(name, i))(X)
+        X = activation_func(name=f"{name}_{i}_activation")(X)
 
         if dropout:
             if X.shape[1] > 32:
-                X = SpatialDropout2D(
-                    dropout_rate, name="{}_{}_dropout".format(name, i)
-                )(X)
+                X = SpatialDropout2D(dropout_rate, name=f"{name}_{i}_dropout")(X)
             else:
-                X = Dropout(dropout_rate, name="{}_{}_dropout".format(name, i))(X)
+                X = Dropout(dropout_rate, name=f"{name}_{i}_dropout")(X)
 
     return X
 
@@ -360,10 +368,10 @@ def Res_CONV_stack(
         name=name,
     )
 
-    X = add([X_skip, X], name="{}_add".format(name))
+    X = add([X_skip, X], name=f"{name}_add")
 
     activation_func = eval(activation)
-    X = activation_func(name="{}_add_activation".format(name))(X)
+    X = activation_func(name=f"{name}_add_activation")(X)
 
     return X
 
@@ -409,26 +417,26 @@ def Sep_CONV_stack(
             dilation_rate=dilation_rate,
             padding="same",
             use_bias=bias_flag,
-            name="{}_{}_depthwise".format(name, i),
+            name=f"{name}_{i}_depthwise",
         )(X)
 
         if batch_norm:
-            X = BatchNormalization(name="{}_{}_depthwise_BN".format(name, i))(X)
+            X = BatchNormalization(name=f"{name}_{i}_depthwise_BN")(X)
 
-        X = activation_func(name="{}_{}_depthwise_activation".format(name, i))(X)
+        X = activation_func(name=f"{name}_{i}_depthwise_activation")(X)
 
         X = Conv2D(
             channel,
             (1, 1),
             padding="same",
             use_bias=bias_flag,
-            name="{}_{}_pointwise".format(name, i),
+            name=f"{name}_{i}_pointwise",
         )(X)
 
         if batch_norm:
-            X = BatchNormalization(name="{}_{}_pointwise_BN".format(name, i))(X)
+            X = BatchNormalization(name=f"{name}_{i}_pointwise_BN")(X)
 
-        X = activation_func(name="{}_{}_pointwise_activation".format(name, i))(X)
+        X = activation_func(name=f"{name}_{i}_pointwise_activation")(X)
 
     return X
 
@@ -463,23 +471,23 @@ def ASPP_conv(X, channel, activation="ReLU", batch_norm=True, name="aspp"):
     bias_flag = not batch_norm
 
     shape_before = X.get_shape().as_list()
-    b4 = GlobalAveragePooling2D(name="{}_avepool_b4".format(name))(X)
+    b4 = GlobalAveragePooling2D(name=f"{name}_avepool_b4")(X)
 
-    b4 = ops.expand_dims(ops.expand_dims(b4, 1), 1, name="{}_expdim_b4".format(name))
+    b4 = ops.expand_dims(ops.expand_dims(b4, 1), 1, name=f"{name}_expdim_b4")
 
-    b4 = Conv2D(
-        channel, 1, padding="same", use_bias=bias_flag, name="{}_conv_b4".format(name)
-    )(b4)
+    b4 = Conv2D(channel, 1, padding="same", use_bias=bias_flag, name=f"{name}_conv_b4")(
+        b4
+    )
 
     if batch_norm:
-        b4 = BatchNormalization(name="{}_conv_b4_BN".format(name))(b4)
+        b4 = BatchNormalization(name=f"{name}_conv_b4_BN")(b4)
 
-    b4 = activation_func(name="{}_conv_b4_activation".format(name))(b4)
+    b4 = activation_func(name=f"{name}_conv_b4_activation")(b4)
 
     # <----- tensorflow v1 resize.
     b4 = Lambda(
         lambda X: ops.image.resize(X, shape_before[1:3], interpolation="bilinear"),
-        name="{}_resize_b4".format(name),
+        name=f"{name}_resize_b4",
     )(b4)
 
     b0 = Conv2D(
@@ -487,13 +495,13 @@ def ASPP_conv(X, channel, activation="ReLU", batch_norm=True, name="aspp"):
         (1, 1),
         padding="same",
         use_bias=bias_flag,
-        name="{}_conv_b0".format(name),
+        name=f"{name}_conv_b0",
     )(X)
 
     if batch_norm:
-        b0 = BatchNormalization(name="{}_conv_b0_BN".format(name))(b0)
+        b0 = BatchNormalization(name=f"{name}_conv_b0_BN")(b0)
 
-    b0 = activation_func(name="{}_conv_b0_activation".format(name))(b0)
+    b0 = activation_func(name=f"{name}_conv_b0_activation")(b0)
 
     # dilation rates are fixed to `[6, 9, 12]`.
     b_r6 = Sep_CONV_stack(
@@ -504,7 +512,7 @@ def ASPP_conv(X, channel, activation="ReLU", batch_norm=True, name="aspp"):
         activation="ReLU",
         dilation_rate=6,
         batch_norm=True,
-        name="{}_sepconv_r6".format(name),
+        name=f"{name}_sepconv_r6",
     )
     b_r9 = Sep_CONV_stack(
         X,
@@ -514,7 +522,7 @@ def ASPP_conv(X, channel, activation="ReLU", batch_norm=True, name="aspp"):
         activation="ReLU",
         dilation_rate=9,
         batch_norm=True,
-        name="{}_sepconv_r9".format(name),
+        name=f"{name}_sepconv_r9",
     )
     b_r12 = Sep_CONV_stack(
         X,
@@ -524,7 +532,7 @@ def ASPP_conv(X, channel, activation="ReLU", batch_norm=True, name="aspp"):
         activation="ReLU",
         dilation_rate=12,
         batch_norm=True,
-        name="{}_sepconv_r12".format(name),
+        name=f"{name}_sepconv_r12",
     )
 
     return concatenate([b4, b0, b_r6, b_r9, b_r12])
@@ -570,13 +578,11 @@ def CONV_output(
 
     if activation:
         if activation == "Sigmoid":
-            X = Activation(
-                "sigmoid", dtype="float32", name="{}_activation".format(name)
-            )(X)
+            X = Activation("sigmoid", dtype="float32", name=f"{name}_activation")(X)
 
         else:
             activation_func = eval(activation)
-            X = activation_func(dtype="float32", name="{}_activation".format(name))(X)
+            X = activation_func(dtype="float32", name=f"{name}_activation")(X)
 
     return X
 

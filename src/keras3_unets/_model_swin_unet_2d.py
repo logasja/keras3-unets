@@ -1,15 +1,15 @@
 # ruff: noqa: F401, F403
-from __future__ import absolute_import
 
-from keras3_unets.layer_utils import *
-from keras3_unets.transformer_layers import patch_extract
-from keras3_unets.transformer_layers import patch_embedding
-from keras3_unets.transformer_layers import SwinTransformerBlock
-from keras3_unets.transformer_layers import patch_merging
-from keras3_unets.transformer_layers import patch_expanding
+from keras import layers, Model, initializers
 
-from keras.layers import Input, Dense
-from keras.models import Model
+from keras3_unets.layer_utils import CONV_output
+from keras3_unets.transformer_layers import (
+    SwinTransformerBlock,
+    patch_embedding,
+    patch_expanding,
+    patch_extract,
+    patch_merging,
+)
 
 
 def swin_transformer_stack(
@@ -62,7 +62,7 @@ def swin_transformer_stack(
             attn_drop=attn_drop_rate,
             proj_drop=proj_drop_rate,
             drop_path_prob=drop_path_rate,
-            name="name{}".format(i),
+            name=f"name{i}",
         )(X)
     return X
 
@@ -154,7 +154,7 @@ def swin_unet_2d_base(
         window_size=window_size[0],
         num_mlp=num_mlp,
         shift_window=shift_window,
-        name="{}_swin_down0".format(name),
+        name=f"{name}_swin_down0",
     )
     X_skip.append(X)
 
@@ -162,7 +162,7 @@ def swin_unet_2d_base(
     for i in range(depth_ - 1):
         # Patch merging
         X = patch_merging(
-            (num_patch_x, num_patch_y), embed_dim=embed_dim, name="down{}".format(i)
+            (num_patch_x, num_patch_y), embed_dim=embed_dim, name=f"down{i}"
         )(X)
 
         # update token shape info
@@ -180,7 +180,7 @@ def swin_unet_2d_base(
             window_size=window_size[i + 1],
             num_mlp=num_mlp,
             shift_window=shift_window,
-            name="{}_swin_down{}".format(name, i + 1),
+            name=f"{name}_swin_down{i + 1}",
         )
 
         # Store tensors for concat
@@ -206,7 +206,7 @@ def swin_unet_2d_base(
             embed_dim=embed_dim,
             upsample_rate=2,
             return_vector=True,
-            name="{}_swin_up{}".format(name, i),
+            name=f"{name}_swin_up{i}",
         )(X)
 
         # update token shape info
@@ -215,9 +215,9 @@ def swin_unet_2d_base(
         num_patch_y = num_patch_y * 2
 
         # Concatenation and linear projection
-        X = concatenate([X, X_decode[i]], axis=-1, name="{}_concat_{}".format(name, i))
-        X = Dense(
-            embed_dim, use_bias=False, name="{}_concat_linear_proj_{}".format(name, i)
+        X = layers.Concatenate([X, X_decode[i]], axis=-1, name=f"{name}_concat_{i}")
+        X = layers.Dense(
+            embed_dim, use_bias=False, name=f"{name}_concat_linear_proj_{i}"
         )(X)
 
         # Swin Transformer stacks
@@ -230,7 +230,7 @@ def swin_unet_2d_base(
             window_size=window_size[i],
             num_mlp=num_mlp,
             shift_window=shift_window,
-            name="{}_swin_up{}".format(name, i),
+            name=f"{name}_swin_up{i}",
         )
 
     # The last expanding layer; it produces full-size feature maps based on the patch size
@@ -304,7 +304,7 @@ def swin_unet_2d(
     Note: This function is experimental.
           The activation functions of all Swin-Transformers are fixed to GELU.
     """
-    IN = Input(input_size)
+    IN = layers.Input(input_size)
 
     # base
     X = swin_unet_2d_base(
@@ -327,8 +327,8 @@ def swin_unet_2d(
         n_labels,
         kernel_size=1,
         activation=output_activation,
-        bias_initializer=all_zero_init,
-        name="{}_output".format(name),
+        bias_initializer=initializers.zeros,
+        name=f"{name}_output",
     )
 
     # functional API model
@@ -339,7 +339,7 @@ def swin_unet_2d(
         outputs=[
             OUT,
         ],
-        name="{}_model".format(name),
+        name=f"{name}_model",
     )
 
     return model

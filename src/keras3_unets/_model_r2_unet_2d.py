@@ -1,11 +1,8 @@
 # ruff: noqa: F401, F403
-from __future__ import absolute_import
+from keras import Model, Input, layers
 
-from keras3_unets.layer_utils import *
 from keras3_unets.activations import GELU, Snake
-
-from keras.layers import Input
-from keras.models import Model
+from keras3_unets.layer_utils import CONV_output, CONV_stack, encode_layer, decode_layer
 
 
 def RR_CONV(
@@ -42,43 +39,39 @@ def RR_CONV(
 
     activation_func = eval(activation)
 
-    layer_skip = Conv2D(channel, 1, name="{}_conv".format(name))(X)
+    layer_skip = layers.Conv2D(channel, 1, name=f"{name}_conv")(X)
     layer_main = layer_skip
 
     for i in range(stack_num):
-        layer_res = Conv2D(
-            channel, kernel_size, padding="same", name="{}_conv{}".format(name, i)
+        layer_res = layers.Conv2D(
+            channel, kernel_size, padding="same", name=f"{name}_conv{i}"
         )(layer_main)
 
         if batch_norm:
-            layer_res = BatchNormalization(name="{}_bn{}".format(name, i))(layer_res)
+            layer_res = layers.BatchNormalization(name=f"{name}_bn{i}")(layer_res)
 
-        layer_res = activation_func(name="{}_activation{}".format(name, i))(layer_res)
+        layer_res = activation_func(name=f"{name}_activation{i}")(layer_res)
 
         for j in range(recur_num):
-            layer_add = add(
-                [layer_res, layer_main], name="{}_add{}_{}".format(name, i, j)
-            )
+            layer_add = layers.Add([layer_res, layer_main], name=f"{name}_add{i}_{j}")
 
-            layer_res = Conv2D(
+            layer_res = layers.Conv2D(
                 channel,
                 kernel_size,
                 padding="same",
-                name="{}_conv{}_{}".format(name, i, j),
+                name=f"{name}_conv{i}_{j}",
             )(layer_add)
 
             if batch_norm:
-                layer_res = BatchNormalization(name="{}_bn{}_{}".format(name, i, j))(
+                layer_res = layers.BatchNormalization(name=f"{name}_bn{i}_{j}")(
                     layer_res
                 )
 
-            layer_res = activation_func(name="{}_activation{}_{}".format(name, i, j))(
-                layer_res
-            )
+            layer_res = activation_func(name=f"{name}_activation{i}_{j}")(layer_res)
 
         layer_main = layer_res
 
-    out_layer = add([layer_main, layer_skip], name="{}_add{}".format(name, i))
+    out_layer = layers.Add([layer_main, layer_skip], name=f"{name}_add{i}")
 
     return out_layer
 
@@ -131,7 +124,7 @@ def UNET_RR_left(
         pool,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_encode".format(name),
+        name=f"{name}_encode",
     )
 
     # stack linear convolutional layers
@@ -196,7 +189,7 @@ def UNET_RR_right(
         unpool,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_decode".format(name),
+        name=f"{name}_decode",
     )
 
     # linear convolutional layers before concatenation
@@ -207,17 +200,17 @@ def UNET_RR_right(
         stack_num=1,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_conv_before_concat".format(name),
+        name=f"{name}_conv_before_concat",
     )
 
     # Tensor concatenation
-    H = concatenate(
+    H = layers.Concatenate(
         [
             X,
         ]
         + X_list,
         axis=-1,
-        name="{}_concat".format(name),
+        name=f"{name}_concat",
     )
 
     # stacked linear convolutional layers after concatenation
@@ -281,7 +274,7 @@ def r2_unet_2d_base(
     
     """
 
-    activation_func = eval(activation)
+    # activation_func = eval(activation)
 
     X = input_tensor
     X_skip = []
@@ -294,7 +287,7 @@ def r2_unet_2d_base(
         recur_num=recur_num,
         activation=activation,
         batch_norm=batch_norm,
-        name="{}_down0".format(name),
+        name=f"{name}_down0",
     )
     X_skip.append(X)
 
@@ -308,7 +301,7 @@ def r2_unet_2d_base(
             activation=activation,
             pool=pool,
             batch_norm=batch_norm,
-            name="{}_down{}".format(name, i + 1),
+            name=f"{name}_down{i + 1}",
         )
         X_skip.append(X)
 
@@ -326,7 +319,7 @@ def r2_unet_2d_base(
             activation=activation,
             unpool=unpool,
             batch_norm=batch_norm,
-            name="{}_up{}".format(name, i + 1),
+            name=f"{name}_up{i + 1}",
         )
 
     return X
@@ -387,9 +380,9 @@ def r2_unet_2d(
     
     """
 
-    activation_func = eval(activation)
+    # activation_func = eval(activation)
 
-    IN = Input(input_size, name="{}_input".format(name))
+    IN = Input(input_size, name=f"{name}_input")
 
     # base
     X = r2_unet_2d_base(
@@ -410,10 +403,10 @@ def r2_unet_2d(
         n_labels,
         kernel_size=1,
         activation=output_activation,
-        name="{}_output".format(name),
+        name=f"{name}_output",
     )
 
     # functional API model
-    model = Model(inputs=[IN], outputs=[OUT], name="{}_model".format(name))
+    model = Model(inputs=[IN], outputs=[OUT], name=f"{name}_model")
 
     return model

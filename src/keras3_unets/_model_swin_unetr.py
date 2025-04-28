@@ -206,15 +206,13 @@ This code was modified by Paul Thompson 2024
 """
 # ruff: noqa: F401, F403
 
-from __future__ import absolute_import
-
 import os
-
 from math import log2
+
 import keras
 
-from keras3_unets.transformer_layers import patch_extract
 from keras3_unets.layer_utils import *
+from keras3_unets.transformer_layers import patch_extract
 
 
 def mlp(x, cf):
