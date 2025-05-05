@@ -264,7 +264,6 @@ def att_unet_2d_base(
             # Remove X_skip so that len(X_skip) equals depth_
             X_skip = X_skip[:depth_]
 
-            print(X_skip)
             depth_encode = len(X_skip)
 
         # for other backbones
